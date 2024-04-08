@@ -85,7 +85,7 @@ format(1234.5678, { outputFormat: 'html', prefixMarker: 'strong', prefix: 'USD '
 
 ## Contributing
 
-Contributions are welcome! If you find a bug or have a feature request, please open an issue on the [GitHub repository](https://github.com/your-username/reduce-precision). If you'd like to contribute code, please fork the repository and submit a pull request.
+Contributions are welcome! If you find a bug or have a feature request, please open an issue on the [GitHub repository](https://github.com/ArzDigitalLabs/reduce-precision). If you'd like to contribute code, please fork the repository and submit a pull request.
 
 ## License
 
