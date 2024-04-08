@@ -1,0 +1,55 @@
+{
+  "name": "reduce-precision",
+  "version": "0.0.1",
+  "description": "",
+  "main": "./lib/index.js",
+  "files": [
+    "lib/**/*"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf ./lib/",
+    "lint": "eslint ./src/ --fix",
+    "test:watch": "jest --watch",
+    "test": "jest --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArzDigitalLabs/reduce-precision.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Mohammad Anaraki",
+    "email": "m.anaraki1376@gmail.com",
+    "url": "https://github.com/mohammadanaraki"
+  },
+  "bugs": {
+    "url": "https://github.com/ArzDigitalLabs/reduce-precision/issues"
+  },
+  "homepage": "https://github.com/ArzDigitalLabs/reduce-precision#readme",
+  "devDependencies": {
+    "@types/jest": "^27.5.2",
+    "@types/node": "^12.20.11",
+    "@typescript-eslint/eslint-plugin": "^4.22.0",
+    "@typescript-eslint/parser": "^4.22.0",
+    "eslint": "^7.25.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.4.0",
+    "jest": "^27.2.0",
+    "lint-staged": "^13.2.1",
+    "prettier": "^2.2.1",
+    "ts-jest": "^27.0.5",
+    "ts-node": "^10.2.1",
+    "typescript": "^4.2.4"
+  },
+  "lint-staged": {
+    "*.ts": "eslint --cache --cache-location .eslintcache --fix"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ]
+  }
+}
