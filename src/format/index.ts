@@ -14,6 +14,21 @@ interface Options {
   postfix?: string;
 }
 
+function isENotation(input: string): boolean {
+  return /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/.test(input);
+}
+
+function convertENotationToRegularNumber(eNotation: number): string {
+  const [coefficientStr, exponentStr] = eNotation.toString().split('e');
+  const coefficientLength = coefficientStr
+    .replace('.', '')
+    .replace('-', '').length;
+  const exponent = parseFloat(exponentStr);
+  const precision = Math.max(coefficientLength - exponent, 1);
+
+  return eNotation.toFixed(precision);
+}
+
 function format(
   input: string | number,
   options: Options = {
@@ -41,6 +56,10 @@ function format(
   if (!input) return 0;
 
   if (!template?.match(/^(number|usd|irt|irr|percent)$/g)) template = 'number';
+
+  if (isENotation(input.toString())) {
+    input = convertENotationToRegularNumber(Number(input));
+  }
 
   // Replace each Persian/Arabic numeral in the string with its English counterpart and strip all non-numeric chars
   let numberString = input
