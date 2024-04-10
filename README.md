@@ -77,6 +77,10 @@ format(0.1234, { template: 'percent', precision: 'low' }); // Output: 12%
 // Formatting with HTML output and custom markers
 format(1234.5678, { outputFormat: 'html', prefixMarker: 'strong', prefix: 'USD ' });
 // Output: <strong>USD </strong>1,234.5678
+
+// Formatting with string input for small or big numbers
+format("0.00000000000000000000005678521", { template: 'usd', precision: 'medium' });
+// Output: $0.0₂₂5678
 ```
 
 ## TypeScript
