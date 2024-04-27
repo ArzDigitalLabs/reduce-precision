@@ -1,5 +1,11 @@
 # reduce-precision
 
+[![Known Vulnerabilities](https://snyk.io/test/github/ArzDigitalLabs/reduce-precision/badge.svg?targetFile=package.json)](https://snyk.io/test/github/ArzDigitalLabs/reduce-precision?targetFile=package.json)
+[![Build Status](https://travis-ci.org/ArzDigitalLabs/reduce-precision.svg?branch=master)](https://travis-ci.org/ArzDigitalLabs/reduce-precision)
+[![codecov.io Code Coverage](https://img.shields.io/codecov/c/github/ArzDigitalLabs/reduce-precision.svg?maxAge=2592000)](https://codecov.io/github/ArzDigitalLabs/reduce-precision?branch=master)
+[![Code Climate](https://codeclimate.com/github/ArzDigitalLabs/reduce-precision/badges/gpa.svg)](https://codeclimate.com/github/ArzDigitalLabs/reduce-precision)
+[![NPM Version](https://badge.fury.io/js/reduce-precision.svg?style=flat)](https://npmjs.org/package/reduce-precision)
+
 `reduce-precision` is a versatile JavaScript/TypeScript package for formatting and reducing the precision of numbers, currencies, and percentages. It supports various templates, precision levels, languages, and output formats, making it easy to generate formatted strings for different use cases.
 
 ## Features
@@ -20,6 +26,8 @@ You can install `reduce-precision` using npm:
 ```bash
 npm install reduce-precision
 ```
+
+[![NPM Download Stats](https://nodei.co/npm/reduce-precision.png?downloads=true)](https://www.npmjs.com/package/reduce-precision)
 
 ## Usage
 
