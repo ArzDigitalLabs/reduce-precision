@@ -26,17 +26,29 @@ npm install reduce-precision
 ### JavaScript (CommonJS)
 
 ```javascript
-const { format } = require('reduce-precision');
+const { NumberFormatter } = require('reduce-precision');
 
-const formatted = format(123456, options);
+const formatter = new NumberFormatter();
+
+formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' });
+
+console.log(formatter.toHtmlString(123456789));
+console.log(formatter.format(123456789));
+console.log(formatter.toString(123456789));
 ```
 
 ### TypeScript or ES Modules
 
 ```typescript
-import { format } from 'reduce-precision';
+import { NumberFormatter } from 'reduce-precision';
 
-const formatted = format(123456, options);
+const formatter = new NumberFormatter();
+
+formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' });
+
+console.log(formatter.toHtmlString(123456789));
+console.log(formatter.format(123456789));
+console.log(formatter.toString(123456789));
 ```
 
 ## Options
@@ -57,31 +69,117 @@ The `format` function accepts an optional `options` object with the following pr
 ## Examples
 
 ```typescript
-import { format } from 'reduce-precision';
+import { NumberFormatter } from 'reduce-precision';
+
+// Create a formatter instance with default options
+const formatter = new NumberFormatter();
+
+// Create a formatter instance with custom options
+const formatterWithOptions = new NumberFormatter({
+  language: 'fa',
+  template: 'irr',
+  precision: 'medium',
+  prefixMarker: 'strong',
+  postfixMarker: 'em',
+  prefix: 'مبلغ: ',
+  postfix: ' ریال'
+});
+
+// Basic usage
+formatter.setLanguage('en');
 
 // Basic number formatting
-format(1234.5678); // Output: 1,234.5678
+formatter.format(1234.5678); // Output: { value: '1,234.6', ... }
 
 // Formatting with medium precision
-format(1234.5678, { precision: 'medium' }); // Output: 1,234.57
+formatter.setTemplate('number', 'medium').format(1234.5678); // Output: { value: '1.23K', ... }
 
 // Formatting as USD
-format(1234.5678, { template: 'usd' }); // Output: $1,234.5678
+formatter.setTemplate('usd', 'high').format(1234.5678); // Output: { value: '$1,234.6', ... }
 
 // Formatting as Iranian Rial with Persian numerals
-format(1234.5678, { template: 'irr', language: 'fa' }); // Output: ۱٬۲۳۴٫۵۷ ر
+formatterWithOptions.format(1234.5678);
+// Output: { value: 'مبلغ: ۱٫۲۳ هزار ت', ... }
 
 // Formatting as a percentage with low precision
-format(0.1234, { template: 'percent', precision: 'low' }); // Output: 12%
+formatter.setTemplate('percent', 'low').format(0.1234); // Output: { value: '0.12%', ... }
 
 // Formatting with HTML output and custom markers
-format(1234.5678, { outputFormat: 'html', prefixMarker: 'strong', prefix: 'USD ' });
-// Output: <strong>USD </strong>1,234.5678
+
+formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' }).toHtmlString(1234.5678);
+// Output: <strong>USD </strong>1,234.6
 
 // Formatting with string input for small or big numbers
-format("0.00000000000000000000005678521", { template: 'usd', precision: 'medium' });
-// Output: $0.0₂₂5678
+
+formatter.setTemplate('usd', 'medium').format("0.00000000000000000000005678521");
+// Output: { value: '$0.0₂₂5678', ... }
 ```
+
+## API
+
+### `FormattedObject` Interface
+
+The `FormattedObject` interface represents the structure of the formatted number object returned by the `format` method.
+
+```typescript
+interface FormattedObject {
+  value: string;           // The formatted value as a string
+  prefix: string;          // The prefix string
+  postfix: string;         // The postfix string
+  sign: string;            // The sign of the number (either an empty string or '-')
+  wholeNumber: string;     // The whole number part of the value
+  fractionalPart: string;  // The complete fractional part of the value
+  fractionalNonZeros: string;  // The non-zero digits in the fractional part
+  fractionalZerosCount: number;  // The count of zeros in the fractional part
+  unit: string;            // The unit postfix
+}
+```
+
+### `NumberFormatter` Class
+
+#### `constructor(options?: FormatterOptions)`
+
+Creates a new instance of the `NumberFormatter` class with optional configuration options.
+
+- `options` (optional): An object containing the initial configuration options for the formatter.
+
+#### `setLanguage(lang: Language, config?: LanguageConfig): NumberFormatter`
+
+Sets the language and optional language configuration for the formatter.
+
+- `lang`: The language to be used for formatting (`'en'` for English or `'fa'` for Persian).
+- `config` (optional): An object containing additional language configuration options.
+  - `prefixMarker` (optional): The marker for the prefix in HTML or Markdown output (default: `'i'`).
+  - `postfixMarker` (optional): The marker for the postfix in HTML or Markdown output (default: `'i'`).
+  - `prefix` (optional): The prefix string to be added before the formatted number.
+  - `postfix` (optional): The postfix string to be added after the formatted number.
+
+Returns the `NumberFormatter` instance for method chaining.
+
+#### `setTemplate(template: Template, precision: Precision): NumberFormatter`
+
+Sets the template and precision for the formatter.
+
+- `template`: The template to be used for formatting (`'number'`, `'usd'`, `'irt'`, `'irr'`, or `'percent'`).
+- `precision`: The precision level for formatting (`'high'`, `'medium'`, `'low'`, or `'auto'`).
+
+Returns the `NumberFormatter` instance for method chaining.
+
+#### `format(input: string | number): FormattedObject`
+
+Formats the input number and returns the formatted object.
+
+- `input`: The number to be formatted, either as a string or a number.
+
+Returns the formatted object.
+
+#### `toHtmlString(): string`
+
+Returns the formatted value as an HTML string.
+
+#### `toString(): string`
+
+Returns the formatted value as a plain string.
 
 ## TypeScript
 
