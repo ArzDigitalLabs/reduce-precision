@@ -41,7 +41,7 @@ const formatter = new NumberFormatter();
 formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' });
 
 console.log(formatter.toHtmlString(123456789));
-console.log(formatter.format(123456789));
+console.log(formatter.toJson(123456789));
 console.log(formatter.toString(123456789));
 ```
 
@@ -55,7 +55,7 @@ const formatter = new NumberFormatter();
 formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' });
 
 console.log(formatter.toHtmlString(123456789));
-console.log(formatter.format(123456789));
+console.log(formatter.toJson(123456789));
 console.log(formatter.toString(123456789));
 ```
 
@@ -97,20 +97,20 @@ const formatterWithOptions = new NumberFormatter({
 formatter.setLanguage('en');
 
 // Basic number formatting
-formatter.format(1234.5678); // Output: { value: '1,234.6', ... }
+formatter.toJson(1234.5678); // Output: { value: '1,234.6', ... }
 
 // Formatting with medium precision
-formatter.setTemplate('number', 'medium').format(1234.5678); // Output: { value: '1.23K', ... }
+formatter.setTemplate('number', 'medium').toJson(1234.5678); // Output: { value: '1.23K', ... }
 
 // Formatting as USD
-formatter.setTemplate('usd', 'high').format(1234.5678); // Output: { value: '$1,234.6', ... }
+formatter.setTemplate('usd', 'high').toJson(1234.5678); // Output: { value: '$1,234.6', ... }
 
 // Formatting as Iranian Rial with Persian numerals
-formatterWithOptions.format(1234.5678);
+formatterWithOptions.toJson(1234.5678);
 // Output: { value: 'مبلغ: ۱٫۲۳ هزار ت', ... }
 
 // Formatting as a percentage with low precision
-formatter.setTemplate('percent', 'low').format(0.1234); // Output: { value: '0.12%', ... }
+formatter.setTemplate('percent', 'low').toJson(0.1234); // Output: { value: '0.12%', ... }
 
 // Formatting with HTML output and custom markers
 
@@ -119,7 +119,7 @@ formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' }).toHtmlSt
 
 // Formatting with string input for small or big numbers
 
-formatter.setTemplate('usd', 'medium').format("0.00000000000000000000005678521");
+formatter.setTemplate('usd', 'medium').toJson("0.00000000000000000000005678521");
 // Output: { value: '$0.0₂₂5678', ... }
 ```
 
@@ -173,7 +173,7 @@ Sets the template and precision for the formatter.
 
 Returns the `NumberFormatter` instance for method chaining.
 
-#### `format(input: string | number): FormattedObject`
+#### `toJson(input: string | number): FormattedObject`
 
 Formats the input number and returns the formatted object.
 
@@ -200,3 +200,4 @@ Contributions are welcome! If you find a bug or have a feature request, please o
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
