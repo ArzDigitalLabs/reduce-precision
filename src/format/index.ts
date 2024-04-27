@@ -15,7 +15,7 @@ interface Options {
 }
 
 function isENotation(input: string): boolean {
-  return /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/.test(input);
+  return /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)$/.test(input);
 }
 
 function convertENotationToRegularNumber(eNotation: number): string {
