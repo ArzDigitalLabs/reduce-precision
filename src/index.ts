@@ -1,3 +1,3 @@
-import format from './format';
+import NumberFormatter from './format';
 
-export { format };
+export { NumberFormatter };
