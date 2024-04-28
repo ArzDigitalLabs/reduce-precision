@@ -136,10 +136,6 @@ interface FormattedObject {
   postfix: string;         // The postfix string
   sign: string;            // The sign of the number (either an empty string or '-')
   wholeNumber: string;     // The whole number part of the value
-  fractionalPart: string;  // The complete fractional part of the value
-  fractionalNonZeros: string;  // The non-zero digits in the fractional part
-  fractionalZerosCount: number;  // The count of zeros in the fractional part
-  unit: string;            // The unit postfix
 }
 ```
 

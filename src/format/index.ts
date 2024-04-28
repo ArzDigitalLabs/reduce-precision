@@ -20,10 +20,6 @@ interface FormattedObject {
   postfix: string;
   sign: string;
   wholeNumber: string;
-  fractionalPart: string;
-  fractionalNonZeros: string;
-  fractionalZerosCount: number;
-  unit?: string;
 }
 
 interface LanguageConfig {
@@ -364,7 +360,7 @@ class NumberFormatter {
     }
 
     const sign = parts[1] || '';
-    let wholeNumberStr = parts[2];
+    let nonFractionalStr = parts[2];
     let fractionalZeroStr = parts[3];
     let fractionalNonZeroStr = parts[4];
     let unitPrefix = '';
@@ -378,16 +374,16 @@ class NumberFormatter {
       // decrease non-zero digits
       nonZeroDigits = precision - fractionalZeroStr.length;
       if (nonZeroDigits < 1) nonZeroDigits = 1;
-    } else if (wholeNumberStr.length > maxIntegerDigits) {
-      wholeNumberStr = '0';
+    } else if (nonFractionalStr.length > maxIntegerDigits) {
+      nonFractionalStr = '0';
       fractionalZeroStr = '';
       fractionalNonZeroStr = '';
     }
 
     // compress large numbers
-    if (compress && wholeNumberStr.length >= 4) {
+    if (compress && nonFractionalStr.length >= 4) {
       const scaleUnitKeys = Object.keys(scaleUnits);
-      let scaledWholeNumber = wholeNumberStr;
+      let scaledWholeNumber = nonFractionalStr;
       let unitIndex = 0;
       while (+scaledWholeNumber > 999 && unitIndex < scaleUnitKeys.length - 1) {
         scaledWholeNumber = (+scaledWholeNumber / 1000).toFixed(2);
@@ -401,7 +397,7 @@ class NumberFormatter {
       }
 
       // sign = parts[1] || "";
-      wholeNumberStr = parts[2];
+      nonFractionalStr = parts[2];
       fractionalZeroStr = parts[3];
       fractionalNonZeroStr = parts[4];
     }
@@ -429,15 +425,13 @@ class NumberFormatter {
                 fractionalZeroStr.length - 1
               );
             } else {
-              wholeNumberStr = (Number(wholeNumberStr) + 1).toString();
+              nonFractionalStr = (Number(nonFractionalStr) + 1).toString();
               fractionalNonZeroStr = fractionalNonZeroStr.substring(1);
             }
           }
         }
       }
     }
-
-    const orginalFractionalZeroStr = fractionalZeroStr;
 
     // Using dex style
     if (compress && fractionalZeroStr !== '' && unitPostfix === '') {
@@ -466,6 +460,7 @@ class NumberFormatter {
     // Output Formating, Prefix, Postfix
     if (template === 'usd') {
       unitPrefix = language === 'en' ? '$' : '';
+      if (!unitPostfix) unitPostfix = language === 'fa' ? ' دلار' : '';
     } else if (template === 'irr') {
       if (!unitPostfix) unitPostfix = language === 'fa' ? ' ر' : ' R';
     } else if (template === 'irt') {
@@ -496,41 +491,51 @@ class NumberFormatter {
       ? '.'.padEnd(fixedDecimalZeros + 1, '0')
       : '';
     let out = '';
+    let wholeNumberStr;
     if (precision <= 0 || nonZeroDigits <= 0 || !fractionalNonZeroStr) {
-      out = `${sign}${unitPrefix}${wholeNumberStr.replace(
+      wholeNumberStr = `${nonFractionalStr.replace(
         thousandSeparatorRegex,
         ','
-      )}${fixedDecimalZeroStr}${unitPostfix}`;
+      )}${fixedDecimalZeroStr}`;
     } else {
-      out = `${sign}${unitPrefix}${wholeNumberStr.replace(
+      wholeNumberStr = `${nonFractionalStr.replace(
         thousandSeparatorRegex,
         ','
-      )}.${fractionalPartStr}${unitPostfix}`;
+      )}.${fractionalPartStr}`;
     }
+
+    out = `${sign}${unitPrefix}${wholeNumberStr}${unitPostfix}`;
+
+    const formattedObject: FormattedObject = {
+      value: out,
+      prefix: unitPrefix,
+      postfix: unitPostfix,
+      sign: sign,
+      wholeNumber: wholeNumberStr,
+    };
 
     // Convert output to Persian numerals if language is "fa"
     if (language === 'fa') {
-      out = out
+      formattedObject.value = (formattedObject?.value ?? '')
         .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
         .replace(/,/g, '٬')
         .replace(/\./g, '٫')
         .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
           return String(scaleUnits[c as keyof typeof scaleUnits]);
         });
-    }
 
-    const formattedObject: FormattedObject = {
-      value: out,
-      prefix: unitPrefix,
-      postfix: unitPostfix.replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
-        return String(scaleUnits[c as keyof typeof scaleUnits]);
-      }),
-      sign: sign,
-      wholeNumber: wholeNumberStr.replace(thousandSeparatorRegex, ','),
-      fractionalPart: fractionalPartStr,
-      fractionalNonZeros: fractionalNonZeroStr,
-      fractionalZerosCount: orginalFractionalZeroStr.length,
-    };
+      formattedObject.postfix = formattedObject.postfix
+        .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
+        .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
+          return String(scaleUnits[c as keyof typeof scaleUnits]);
+        });
+
+      formattedObject.wholeNumber = formattedObject.wholeNumber
+        .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
+        .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
+          return String(scaleUnits[c as keyof typeof scaleUnits]);
+        });
+    }
 
     return formattedObject;
   }
