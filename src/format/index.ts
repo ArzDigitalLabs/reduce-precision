@@ -3,17 +3,6 @@ type Precision = 'auto' | 'high' | 'medium' | 'low';
 type Language = 'en' | 'fa';
 type OutputFormat = 'plain' | 'html' | 'markdown';
 
-interface Options {
-  precision?: Precision;
-  template?: Template;
-  language?: Language;
-  outputFormat?: OutputFormat;
-  prefixMarker?: string;
-  postfixMarker?: string;
-  prefix?: string;
-  postfix?: string;
-}
-
 interface FormattedObject {
   value?: string;
   prefix: string;
@@ -27,18 +16,44 @@ interface LanguageConfig {
   postfixMarker?: string;
   prefix?: string;
   postfix?: string;
+  thousandSeparator?: string;
+  decimalSeparator?: string;
+}
+
+interface Options extends LanguageConfig {
+  precision?: Precision;
+  template?: Template;
+  language?: Language;
+  outputFormat?: OutputFormat;
 }
 
 class NumberFormatter {
+  private readonly languageBaseConfig: LanguageConfig = {
+    prefixMarker: 'i',
+    postfixMarker: 'i',
+    prefix: '',
+    postfix: '',
+  };
+
+  private defaultLanguageConfig: { [key in Language]: LanguageConfig } = {
+    en: {
+      ...this.languageBaseConfig,
+      thousandSeparator: ',',
+      decimalSeparator: '.',
+    },
+    fa: {
+      ...this.languageBaseConfig,
+      thousandSeparator: '٫',
+      decimalSeparator: '٬',
+    },
+  };
+
   private options: Options = {
     language: 'en',
     template: 'number',
     precision: 'high',
     outputFormat: 'plain',
-    prefixMarker: 'i',
-    postfixMarker: 'i',
-    prefix: '',
-    postfix: '',
+    ...this.defaultLanguageConfig['en'],
   };
 
   constructor(options: Options = {}) {
@@ -47,11 +62,19 @@ class NumberFormatter {
   setLanguage(lang: Language, config: LanguageConfig = {}): NumberFormatter {
     this.options.language = lang;
     this.options.prefixMarker =
-      config.prefixMarker || this.options.prefixMarker;
+      config.prefixMarker || this.defaultLanguageConfig[lang].prefixMarker;
     this.options.postfixMarker =
-      config.postfixMarker || this.options.postfixMarker;
-    this.options.prefix = config.prefix || this.options.prefix;
-    this.options.postfix = config.postfix || this.options.postfix;
+      config.postfixMarker || this.defaultLanguageConfig[lang].postfixMarker;
+    this.options.prefix =
+      config.prefix || this.defaultLanguageConfig[lang].prefix;
+    this.options.postfix =
+      config.postfix || this.defaultLanguageConfig[lang].postfix;
+    this.options.thousandSeparator =
+      config.thousandSeparator ||
+      this.defaultLanguageConfig[lang].thousandSeparator;
+    this.options.decimalSeparator =
+      config.decimalSeparator ||
+      this.defaultLanguageConfig[lang].decimalSeparator;
     return this;
   }
 
@@ -106,6 +129,8 @@ class NumberFormatter {
       postfixMarker,
       prefix,
       postfix,
+      thousandSeparator,
+      decimalSeparator,
     } = this.options;
 
     if (!input) return {} as FormattedObject;
@@ -297,7 +322,9 @@ class NumberFormatter {
       prefixMarker,
       postfixMarker,
       prefix,
-      postfix
+      postfix,
+      thousandSeparator,
+      decimalSeparator
     );
   }
   private convertENotationToRegularNumber(eNotation: number): string {
@@ -324,11 +351,14 @@ class NumberFormatter {
     prefixMarker = 'span',
     postfixMarker = 'span',
     prefix = '',
-    postfix = ''
+    postfix = '',
+    thousandSeparator = ',',
+    decimalSeparator = '.'
   ) {
     if (!numberString) {
       return {} as FormattedObject;
     }
+
     numberString = numberString.toString();
 
     const maxPrecision = 30;
@@ -514,12 +544,16 @@ class NumberFormatter {
       wholeNumber: wholeNumberStr,
     };
 
+    // replace custom config
+
+    formattedObject.value = (formattedObject?.value ?? '')
+      .replace(/,/g, thousandSeparator)
+      .replace(/\./g, decimalSeparator);
+
     // Convert output to Persian numerals if language is "fa"
     if (language === 'fa') {
       formattedObject.value = (formattedObject?.value ?? '')
         .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
-        .replace(/,/g, '٬')
-        .replace(/\./g, '٫')
         .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
           return String(scaleUnits[c as keyof typeof scaleUnits]);
         });
