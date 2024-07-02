@@ -59,20 +59,26 @@ console.log(formatter.toJson(123456789));
 console.log(formatter.toString(123456789));
 ```
 
+### Browser
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/reduce-precision/lib/bundle.min.js"></script>
+```
+
 ## Options
 
 The `format` function accepts an optional `options` object with the following properties:
 
-| Option        | Type                                        | Default   | Description                                                        |
-| ------------- | ------------------------------------------- | --------- | ------------------------------------------------------------------ |
-| `precision`   | `'auto'` \| `'high'` \| `'medium'` \| `'low'` | `'high'`   | Precision level for formatting                                     |
-| `template`    | `'number'` \| `'usd'` \| `'irt'` \| `'irr'` \| `'percent'` | `'number'` | Template for formatting                                            |
-| `language`    | `'en'` \| `'fa'`                              | `'en'`     | Language for formatting (English or Persian)                       |
-| `outputFormat` | `'plain'` \| `'html'` \| `'markdown'`          | `'plain'`  | Output format                                                      |
-| `prefixMarker` | `string`                                    | `'i'`      | Prefix marker for HTML and Markdown output                         |
-| `postfixMarker` | `string`                                    | `'i'`      | Postfix marker for HTML and Markdown output                        |
-| `prefix`       | `string`                                    | `''`       | Prefix string to be added before the formatted number              |
-| `postfix`      | `string`                                    | `''`       | Postfix string to be added after the formatted number              |
+| Option          | Type                                                       | Default    | Description                                           |
+| --------------- | ---------------------------------------------------------- | ---------- | ----------------------------------------------------- |
+| `precision`     | `'auto'` \| `'high'` \| `'medium'` \| `'low'`              | `'high'`   | Precision level for formatting                        |
+| `template`      | `'number'` \| `'usd'` \| `'irt'` \| `'irr'` \| `'percent'` | `'number'` | Template for formatting                               |
+| `language`      | `'en'` \| `'fa'`                                           | `'en'`     | Language for formatting (English or Persian)          |
+| `outputFormat`  | `'plain'` \| `'html'` \| `'markdown'`                      | `'plain'`  | Output format                                         |
+| `prefixMarker`  | `string`                                                   | `'i'`      | Prefix marker for HTML and Markdown output            |
+| `postfixMarker` | `string`                                                   | `'i'`      | Postfix marker for HTML and Markdown output           |
+| `prefix`        | `string`                                                   | `''`       | Prefix string to be added before the formatted number |
+| `postfix`       | `string`                                                   | `''`       | Postfix string to be added after the formatted number |
 
 ## Examples
 
@@ -90,7 +96,7 @@ const formatterWithOptions = new NumberFormatter({
   prefixMarker: 'strong',
   postfixMarker: 'em',
   prefix: 'مبلغ: ',
-  postfix: ' ریال'
+  postfix: ' ریال',
 });
 
 // Basic usage
@@ -114,12 +120,16 @@ formatter.setTemplate('percent', 'low').toJson(0.1234); // Output: { value: '0.1
 
 // Formatting with HTML output and custom markers
 
-formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' }).toHtmlString(1234.5678);
+formatter
+  .setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' })
+  .toHtmlString(1234.5678);
 // Output: <strong>USD </strong>1,234.6
 
 // Formatting with string input for small or big numbers
 
-formatter.setTemplate('usd', 'medium').toJson("0.00000000000000000000005678521");
+formatter
+  .setTemplate('usd', 'medium')
+  .toJson('0.00000000000000000000005678521');
 // Output: { value: '$0.0₂₂5678', ... }
 ```
 
@@ -131,11 +141,11 @@ The `FormattedObject` interface represents the structure of the formatted number
 
 ```typescript
 interface FormattedObject {
-  value: string;           // The formatted value as a string
-  prefix: string;          // The prefix string
-  postfix: string;         // The postfix string
-  sign: string;            // The sign of the number (either an empty string or '-')
-  wholeNumber: string;     // The whole number part of the value
+  value: string; // The formatted value as a string
+  prefix: string; // The prefix string
+  postfix: string; // The postfix string
+  sign: string; // The sign of the number (either an empty string or '-')
+  wholeNumber: string; // The whole number part of the value
 }
 ```
 
@@ -196,4 +206,3 @@ Contributions are welcome! If you find a bug or have a feature request, please o
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
