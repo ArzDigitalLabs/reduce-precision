@@ -161,14 +161,12 @@ class NumberFormatter {
 
     // Auto precision selection
     if (precision === 'auto') {
-      if (template.match(/^(usd|irt|irr)$/g)) {
+      if (template.match(/^(usd|irt|irr|number)$/g)) {
         if (number >= 0.0001 && number < 100_000_000_000) {
           precision = 'high';
         } else {
           precision = 'medium';
         }
-      } else if (template === 'number') {
-        precision = 'medium';
       } else if (template === 'percent') {
         precision = 'low';
       }
