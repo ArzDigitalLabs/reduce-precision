@@ -7,6 +7,7 @@ interface FormattedObject {
   value?: string;
   prefix: string;
   postfix: string;
+  fullPostfix?: string;
   sign: string;
   wholeNumber: string;
 }
@@ -381,6 +382,26 @@ class NumberFormatter {
           Qt: ' میلیون همت',
         };
 
+    const fullScaleUnits = template.match(/^(number|percent)$/g)
+      ? {
+          '': '',
+          K: ' هزار',
+          M: ' میلیون',
+          B: ' میلیارد',
+          T: ' تریلیون',
+          Qd: ' کادریلیون',
+          Qt: ' کنتیلیون',
+        }
+      : {
+          '': '',
+          K: ' هزار تومان',
+          M: ' میلیون تومان',
+          B: ' میلیارد تومان',
+          T: ' هزار میلیارد تومان',
+          Qd: ' کادریلیون تومان',
+          Qt: ' کنتیلیون تومان',
+        };
+
     let parts = /^(-)?(\d+)\.?([0]*)(\d*)$/g.exec(numberString);
 
     if (!parts) {
@@ -554,6 +575,12 @@ class NumberFormatter {
         .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
         .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
           return String(scaleUnits[c as keyof typeof scaleUnits]);
+        });
+
+      formattedObject.fullPostfix = unitPostfix
+        .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
+        .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
+          return String(fullScaleUnits[c as keyof typeof fullScaleUnits]);
         });
 
       formattedObject.postfix = formattedObject.postfix
