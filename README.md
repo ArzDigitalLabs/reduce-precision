@@ -1,3 +1,5 @@
+
+
 # reduce-precision
 
 [![Known Vulnerabilities](https://snyk.io/test/github/ArzDigitalLabs/reduce-precision/badge.svg?targetFile=package.json)](https://snyk.io/test/github/ArzDigitalLabs/reduce-precision?targetFile=package.json)
@@ -6,7 +8,7 @@
 [![Code Climate](https://codeclimate.com/github/ArzDigitalLabs/reduce-precision/badges/gpa.svg)](https://codeclimate.com/github/ArzDigitalLabs/reduce-precision)
 [![NPM Version](https://badge.fury.io/js/reduce-precision.svg?style=flat)](https://npmjs.org/package/reduce-precision)
 
-`reduce-precision` is a versatile JavaScript/TypeScript package for formatting and reducing the precision of numbers, currencies, and percentages. It supports various templates, precision levels, languages, and output formats, making it easy to generate formatted strings for different use cases.
+`reduce-precision` is a versatile package for formatting and reducing the precision of numbers, currencies, and percentages. It supports various templates, precision levels, languages, and output formats, making it easy to generate formatted strings for different use cases.
 
 ## Features
 
@@ -21,6 +23,8 @@
 
 ## Installation
 
+### Node.js / TypeScript
+
 You can install `reduce-precision` using npm:
 
 ```bash
@@ -29,23 +33,17 @@ npm install reduce-precision
 
 [![NPM Download Stats](https://nodei.co/npm/reduce-precision.png?downloads=true)](https://www.npmjs.com/package/reduce-precision)
 
-## Usage
+### PHP
 
-### JavaScript (CommonJS)
+You can install the PHP version of `reduce-precision` via Composer:
 
-```javascript
-const { NumberFormatter } = require('reduce-precision');
-
-const formatter = new NumberFormatter();
-
-formatter.setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' });
-
-console.log(formatter.toHtmlString(123456789));
-console.log(formatter.toJson(123456789));
-console.log(formatter.toString(123456789));
+```bash
+composer require amirhosseinfaghan/reduce-precision
 ```
 
-### TypeScript or ES Modules
+## Usage
+
+### Node.js / TypeScript
 
 ```typescript
 import { NumberFormatter } from 'reduce-precision';
@@ -59,10 +57,15 @@ console.log(formatter.toJson(123456789));
 console.log(formatter.toString(123456789));
 ```
 
-### Browser
+### PHP
 
-```html
-<script src="https://cdn.jsdelivr.net/npm/reduce-precision/lib/bundle.min.js"></script>
+```php
+require 'vendor/autoload.php';
+
+use NumberFormatter\NumberFormatter;
+
+$formatter = new NumberFormatter();
+echo $formatter->toString(12345.678); // Default format
 ```
 
 ## Options
@@ -82,22 +85,13 @@ The `format` function accepts an optional `options` object with the following pr
 
 ## Examples
 
+### TypeScript/Node.js
+
 ```typescript
 import { NumberFormatter } from 'reduce-precision';
 
 // Create a formatter instance with default options
 const formatter = new NumberFormatter();
-
-// Create a formatter instance with custom options
-const formatterWithOptions = new NumberFormatter({
-  language: 'fa',
-  template: 'irr',
-  precision: 'medium',
-  prefixMarker: 'strong',
-  postfixMarker: 'em',
-  prefix: 'مبلغ: ',
-  postfix: ' ریال',
-});
 
 // Basic usage
 formatter.setLanguage('en');
@@ -112,30 +106,46 @@ formatter.setTemplate('number', 'medium').toJson(1234.5678); // Output: { value:
 formatter.setTemplate('usd', 'high').toJson(1234.5678); // Output: { value: '$1,234.6', ... }
 
 // Formatting as Iranian Rial with Persian numerals
-formatterWithOptions.toJson(1234.5678);
-// Output: { value: 'مبلغ: ۱٫۲۳ هزار ت', ... }
+formatter.setLanguage('fa');
+formatter.setTemplate('irr', 'medium').toJson(1234.5678); // Output: { value: '۱٫۲۳ هزار ریال', ... }
 
 // Formatting as a percentage with low precision
 formatter.setTemplate('percent', 'low').toJson(0.1234); // Output: { value: '0.12%', ... }
 
 // Formatting with HTML output and custom markers
-
 formatter
   .setLanguage('en', { prefixMarker: 'strong', prefix: 'USD ' })
   .toHtmlString(1234.5678);
 // Output: <strong>USD </strong>1,234.6
 
 // Formatting with string input for small or big numbers
-
-formatter
-  .setTemplate('usd', 'medium')
-  .toJson('0.00000000000000000000005678521');
+formatter.setTemplate('usd', 'medium').toJson('0.00000000000000000000005678521');
 // Output: { value: '$0.0₂₂5678', ... }
+```
+
+### PHP
+
+```php
+require 'vendor/autoload.php';
+
+use NumberFormatter\NumberFormatter;
+
+$formatter = new NumberFormatter();
+echo $formatter->toString(12345.678); // Default format
+
+$formatter->setLanguage('fa');
+echo $formatter->toString(12345.678); // Output in Persian
+
+$formatter->setTemplate('usd', 'high');
+echo $formatter->toString(12345.678); // Output in USD format with high precision
+
+echo $formatter->toHtmlString(12345.678);  // HTML formatted output
+echo $formatter->toMdString(12345.678);    // Markdown formatted output
 ```
 
 ## API
 
-### `FormattedObject` Interface
+### `FormattedObject` Interface (TypeScript/Node.js)
 
 The `FormattedObject` interface represents the structure of the formatted number object returned by the `format` method.
 
@@ -149,55 +159,49 @@ interface FormattedObject {
 }
 ```
 
-### `NumberFormatter` Class
+### `NumberFormatter` Class (PHP)
 
-#### `constructor(options?: FormatterOptions)`
+#### `constructor`
 
 Creates a new instance of the `NumberFormatter` class with optional configuration options.
 
-- `options` (optional): An object containing the initial configuration options for the formatter.
-
-#### `setLanguage(lang: Language, config?: LanguageConfig): NumberFormatter`
+#### `setLanguage`
 
 Sets the language and optional language configuration for the formatter.
 
-- `lang`: The language to be used for formatting (`'en'` for English or `'fa'` for Persian).
-- `config` (optional): An object containing additional language configuration options.
-  - `prefixMarker` (optional): The marker for the prefix in HTML or Markdown output (default: `'i'`).
-  - `postfixMarker` (optional): The marker for the postfix in HTML or Markdown output (default: `'i'`).
-  - `prefix` (optional): The prefix string to be added before the formatted number.
-  - `postfix` (optional): The postfix string to be added after the formatted number.
-
-Returns the `NumberFormatter` instance for method chaining.
-
-#### `setTemplate(template: Template, precision: Precision): NumberFormatter`
+#### `setTemplate`
 
 Sets the template and precision for the formatter.
 
-- `template`: The template to be used for formatting (`'number'`, `'usd'`, `'irt'`, `'irr'`, or `'percent'`).
-- `precision`: The precision level for formatting (`'high'`, `'medium'`, `'low'`, or `'auto'`).
+#### `toString`
 
-Returns the `NumberFormatter` instance for method chaining.
+Formats the input number as a string.
 
-#### `toJson(input: string | number): FormattedObject`
+#### `toPlainString`
 
-Formats the input number and returns the formatted object.
+Formats the input number as a plain text string.
 
-- `input`: The number to be formatted, either as a string or a number.
+#### `toHtmlString`
 
-Returns the formatted object.
+Formats the input number as an HTML string.
 
-#### `toHtmlString(): string`
+#### `toMdString`
 
-Returns the formatted value as an HTML string.
+Formats the input number as a Markdown string.
 
-#### `toString(): string`
+## Testing
 
-Returns the formatted value as a plain string.
+### Node.js / TypeScript
 
-## TypeScript
+You can run tests using Jest or any other preferred testing framework for TypeScript.
 
-`reduce-precision` is written in TypeScript and includes type definitions for all exported functions and interfaces.
+### PHP
+
+You can run tests using PHPUnit:
+
+```bash
+./vendor/bin/phpunit tests
+```
 
 ## Contributing
 
@@ -206,3 +210,5 @@ Contributions are welcome! If you find a bug or have a feature request, please o
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+---
