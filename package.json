@@ -2,16 +2,16 @@
   "name": "reduce-precision",
   "version": "1.0.3",
   "description": "",
-  "main": "./lib/index.js",
+  "main": "./ts/lib/index.js",
   "files": [
-    "lib/**/*"
+    "ts/lib/**/*"
   ],
   "scripts": {
     "build": "npm run build:tsc && npm run build:webpack",
-    "build:tsc": "tsc --project tsconfig.build.json",
+    "build:tsc": "tsc --project tsconfig.json",
     "build:webpack": "webpack --config webpack.config.js",
-    "clean": "rm -rf ./lib/",
-    "lint": "eslint ./src/ --fix",
+    "clean": "rm -rf ./ts/lib/",
+    "lint": "eslint ./ts/src/ --fix",
     "test:watch": "jest --watch",
     "test": "jest --coverage",
     "typecheck": "tsc --noEmit"

@@ -1,0 +1,42 @@
+{
+    "name": "arz-digital-labs/reduce-precision",
+    "description": "A PHP package for reducing precision of numbers.",
+    "version": "1.0.0",
+    "type": "library",
+    "authors": [
+        {
+            "name": "amirhosseinfaghan",
+            "email": "www.amir9203joyandeh@gmail.com",
+            "homepage": "https://github.com/amirhosseinfaghan"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "ReducePrecision\\": "php/src/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "*",
+        "squizlabs/php_codesniffer": "^3.6",
+        "friendsofphp/php-cs-fixer": "^3.0"
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit --coverage-text",
+        "lint": "vendor/bin/phpcs --standard=PSR12 src",
+        "fix": "vendor/bin/php-cs-fixer fix"
+    },
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/amirhosseinfaghan/reduce-precision.git"
+        }
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/amirhosseinfaghan/reduce-precision",
+    "support": {
+        "issues": "https://github.com/amirhosseinfaghan/reduce-precision/issues"
+    }
+}

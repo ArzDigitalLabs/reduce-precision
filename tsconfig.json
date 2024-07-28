@@ -3,11 +3,11 @@
     "target": "es6",
     "module": "commonjs",
     "declaration": true,
-    "outDir": "./lib/",
+    "outDir": "./ts/lib/",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": ["ts/src/**/*.ts", "ts/test/**/*.ts"]
 }

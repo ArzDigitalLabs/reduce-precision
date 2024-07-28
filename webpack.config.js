@@ -1,9 +1,9 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/index.ts',  // Adjust this to the entry point of your application
+  entry: './ts/src/index.ts',  // Adjust this to the entry point of your application
   output: {
-    path: path.resolve(__dirname, 'lib'),  // The output directory
+    path: path.resolve(__dirname, 'ts/lib'),  // The output directory
     filename: 'bundle.min.js',  // The name of the bundled file
     libraryTarget: 'umd',  // The format of the bundled file
     library: 'ReducePrecision',
