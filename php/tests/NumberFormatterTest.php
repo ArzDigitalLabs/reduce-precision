@@ -2,7 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use NumberFormatter\NumberFormatter; // Import the class with the namespace
-require_once '../reduce-precision/src/NumberFormatter.php'; // Adjust the path if necessary
+require_once '../php/src/NumberFormatter.php'; // Adjust the path if necessary
 
 class NumberFormatterTest extends TestCase
 {
@@ -89,4 +89,3 @@ class NumberFormatterTest extends TestCase
         $this->assertEquals('10', $formatter->toString('10'));
     }
 }
-
