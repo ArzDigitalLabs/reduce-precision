@@ -38,7 +38,7 @@ npm install reduce-precision
 You can install the PHP version of `reduce-precision` via Composer:
 
 ```bash
-composer require ArzDigitalLabs/reduce-precision
+composer require arzdigitallabs/reduce-precision
 ```
 
 ## Usage
