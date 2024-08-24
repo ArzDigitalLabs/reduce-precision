@@ -339,6 +339,10 @@ class NumberFormatter
             }
             $unitPostfix = $scaleUnitKeys[$unitIndex];
 
+            if ($language == 'fa') {
+                $unitPostfix = $scaleUnits[$scaleUnitKeys[$unitIndex]];
+            }
+
             preg_match('/^(-)?(\d+)\.?([0]*)(\d*)$/u', $scaledWholeNumber, $parts);
             if (empty($parts)) {
                 return [];

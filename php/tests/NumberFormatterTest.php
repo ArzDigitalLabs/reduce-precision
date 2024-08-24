@@ -9,11 +9,11 @@ class NumberFormatterTest extends TestCase
     public function testDefaultFormat()
     {
         $formatter = new NumberFormatter([
-            'language' => 'en',
+            'language' => 'fa',
             'template' => 'usd',
             'precision' => 'auto'
         ]);
-        $this->assertEquals('$0', $formatter->toString('0'));
+        $this->assertEquals('۴۲۳ میلیون همت', $formatter->toString('423000000000000000000'));
     }
 
     public function testSetLanguage()
