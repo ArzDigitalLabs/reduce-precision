@@ -8,8 +8,12 @@ class NumberFormatterTest extends TestCase
 {
     public function testDefaultFormat()
     {
-        $formatter = new NumberFormatter();
-        $this->assertEquals('123', $formatter->toString('123'));
+        $formatter = new NumberFormatter([
+            'language' => 'en',
+            'template' => 'usd',
+            'precision' => 'auto'
+        ]);
+        $this->assertEquals('$0', $formatter->toString('0'));
     }
 
     public function testSetLanguage()
