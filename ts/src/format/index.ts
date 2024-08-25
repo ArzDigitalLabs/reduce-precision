@@ -134,8 +134,10 @@ class NumberFormatter {
       decimalSeparator,
     } = this.options;
 
-    if (!input) return {} as FormattedObject;
-
+    if (input === undefined || input === null || input === '') {
+      return {} as FormattedObject;
+    }
+    
     if (!template?.match(/^(number|usd|irt|irr|percent)$/g))
       template = 'number';
 
@@ -354,7 +356,7 @@ class NumberFormatter {
     thousandSeparator = ',',
     decimalSeparator = '.'
   ) {
-    if (!numberString) {
+    if (numberString === undefined || numberString === null || numberString.trim() === '') {
       return {} as FormattedObject;
     }
 
