@@ -1,5 +1,5 @@
 <?php
-
+// v1.0.4
 namespace NumberFormatter;
 
 class NumberFormatter
@@ -75,7 +75,7 @@ class NumberFormatter
     // Private methods... 
     private function isENotation($input)
     {
-        return preg_match('/^[-+]?[0-9]*\.?[0-9]+([eE][-+][0-9]+)$/', $input);
+        return preg_match('/^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)$/', $input);
     }
 
     private function format($input)
@@ -477,6 +477,9 @@ class NumberFormatter
     private function convertENotationToRegularNumber($eNotation)
     {
         // Conversion logic for E-notation to regular number
-        return number_format($eNotation, 10, '.', '');
+        $decimalNotation = sprintf('%.20f', $eNotation);
+        return $decimalNotation;
+        
+        //return number_format($eNotation, 10, '.', '');
     }
 }
