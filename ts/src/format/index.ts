@@ -156,7 +156,7 @@ class NumberFormatter {
     // Stripping leading zeros and trailing zeros after a decimal point
     numberString = numberString
       .replace(/^0+(?=\d)/g, '')
-      .replace(/(?<=\.\d*)0+$|(?<=\.\d)0+\b/g, '');
+      .replace(/\.\d*0+$|(\.\d)0+\b/g, '$1')
 
     const number = Math.abs(Number(numberString));
     let p, d, r, c;
