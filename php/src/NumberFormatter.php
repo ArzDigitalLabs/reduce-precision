@@ -1,5 +1,5 @@
 <?php
-// v1.0.4
+// v1.0.5
 namespace NumberFormatter;
 
 class NumberFormatter
