@@ -117,7 +117,7 @@ class NumberFormatter {
 
   // Private methods...
   private isENotation(input: string): boolean {
-    return /^[-+]?[0-9]*\.?[0-9]+([eE][-+][0-9]+)$/.test(input);
+    return /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)$/.test(input);
   }
 
   private format(input: string | number): FormattedObject {
@@ -141,7 +141,10 @@ class NumberFormatter {
     if (!template?.match(/^(number|usd|irt|irr|percent)$/g))
       template = 'number';
 
-    if (this.isENotation(input.toString())) {
+    // Store original input string to preserve format for trailing zeros
+    const originalInput = input.toString();
+    
+    if (this.isENotation(originalInput)) {
       input = this.convertENotationToRegularNumber(Number(input));
     }
 
@@ -153,10 +156,9 @@ class NumberFormatter {
       })
       .replace(/[^\d.-]/g, '');
 
-    // Stripping leading zeros and trailing zeros after a decimal point
+    // Stripping leading zeros only, preserve trailing zeros
     numberString = numberString
-      .replace(/^0+(?=\d)/g, '')
-      .replace(/\.\d*0+$|(\.\d)0+\b/g, '$1')
+      .replace(/^0+(?=\d)/g, '');
 
     const number = Math.abs(Number(numberString));
     let p, d, r, c;
@@ -310,6 +312,12 @@ class NumberFormatter {
       }
     }
 
+    // For scientific notation, increase precision to ensure correct representation
+    if (this.isENotation(originalInput)) {
+      p = Math.max(p, 20);
+      r = false;
+    }
+    
     return this.reducePrecision(
       numberString,
       p,
@@ -325,18 +333,34 @@ class NumberFormatter {
       prefix,
       postfix,
       thousandSeparator,
-      decimalSeparator
+      decimalSeparator,
+      originalInput
     );
   }
+  
   private convertENotationToRegularNumber(eNotation: number): string {
-    const [coefficientStr, exponentStr] = eNotation.toString().split('e');
-    const coefficientLength = coefficientStr
-      .replace('.', '')
-      .replace('-', '').length;
-    const exponent = parseFloat(exponentStr);
-    const precision = Math.max(coefficientLength - exponent, 1);
-
-    return eNotation.toFixed(precision);
+    // For simple cases like 1e3, directly use Number constructor
+    if (Number.isInteger(eNotation) && eNotation >= 1000) {
+      return eNotation.toString();
+    }
+    
+    const parts = eNotation.toString().toLowerCase().split('e');
+    if (parts.length !== 2) return eNotation.toString();
+    
+    const coefficient = parseFloat(parts[0]);
+    const exponent = parseInt(parts[1], 10);
+    
+    // Handle negative exponents (very small numbers)
+    if (exponent < 0) {
+      const absExponent = Math.abs(exponent);
+      // Determine precision needed to show all digits
+      const precision = absExponent + 
+        (parts[0].includes('.') ? parts[0].split('.')[1].length : 0);
+      return eNotation.toFixed(precision);
+    }
+    
+    // For positive exponents, let JavaScript do the conversion
+    return eNotation.toString();
   }
 
   private reducePrecision(
@@ -354,10 +378,16 @@ class NumberFormatter {
     prefix = '',
     postfix = '',
     thousandSeparator = ',',
-    decimalSeparator = '.'
+    decimalSeparator = '.',
+    originalInput = ''
   ) {
     if (numberString === undefined || numberString === null || numberString.trim() === '') {
       return {} as FormattedObject;
+    }
+
+    // Handle negative zero
+    if (numberString === '-0' || numberString === '-0.0') {
+      numberString = numberString.substring(1); // Remove negative sign for zero
     }
 
     numberString = numberString.toString();
@@ -504,9 +534,39 @@ class NumberFormatter {
         });
     }
 
+    // Check if the original input had trailing zeros
     let fractionalPartStr = `${fractionalZeroStr}${fractionalNonZeroStr}`;
-    fractionalPartStr = fractionalPartStr.substring(0, precision);
-    fractionalPartStr = fractionalPartStr.replace(/^(\d*[1-9])0+$/g, '$1');
+    // Don't truncate trailing zeros when they're in the original string
+    if (fractionalPartStr.length > precision && !originalInput.includes('e')) {
+      fractionalPartStr = fractionalPartStr.substring(0, precision);
+    }
+    
+    // For scientific notation and numbers with trailing zeros, preserve the format
+    if (originalInput.includes('e') || originalInput.includes('E')) {
+      // For scientific notation, use the converted string
+    } else if (originalInput.includes('.')) {
+      // For regular numbers with decimal point, check for trailing zeros
+      const originalParts = originalInput.split('.');
+      if (originalParts.length === 2) {
+        const originalDecimal = originalParts[1];
+        // If original has more digits than what we have now, preserve those trailing zeros
+        if (originalDecimal.length > fractionalPartStr.length && originalDecimal.endsWith('0')) {
+          // Count trailing zeros in original
+          let trailingZeros = 0;
+          for (let i = originalDecimal.length - 1; i >= 0; i--) {
+            if (originalDecimal[i] === '0') {
+              trailingZeros++;
+            } else {
+              break;
+            }
+          }
+          // Add back trailing zeros if they were in the original
+          if (trailingZeros > 0) {
+            fractionalPartStr = fractionalPartStr.padEnd(fractionalPartStr.length + trailingZeros, '0');
+          }
+        }
+      }
+    }
 
     // Output Formating, Prefix, Postfix
     if (template === 'usd') {
@@ -543,7 +603,11 @@ class NumberFormatter {
       : '';
     let out = '';
     let wholeNumberStr;
-    if (precision <= 0 || nonZeroDigits <= 0 || !fractionalNonZeroStr) {
+    
+    // FIXED: Changed condition to correctly handle numbers with trailing zeros
+    // Old condition: if (precision <= 0 || nonZeroDigits <= 0 || !fractionalNonZeroStr) {
+    // New condition checks if both fractional parts are empty
+    if (precision <= 0 || nonZeroDigits <= 0 || (fractionalNonZeroStr === '' && fractionalZeroStr === '')) {
       wholeNumberStr = `${nonFractionalStr.replace(
         thousandSeparatorRegex,
         ','
@@ -566,7 +630,6 @@ class NumberFormatter {
     };
 
     // replace custom config
-
     formattedObject.value = (formattedObject?.value ?? '')
       .replace(/,/g, thousandSeparator)
       .replace(/\./g, decimalSeparator);
