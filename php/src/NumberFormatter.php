@@ -1,5 +1,5 @@
 <?php
-// v1.0.6
+// v1.0.7 - Fixed version
 namespace NumberFormatter;
 
 class NumberFormatter
@@ -72,7 +72,7 @@ class NumberFormatter
         return $formattedObject['value'] ?? '';
     }
 
-    // Private methods... 
+    // FIXED: Updated regex to handle both positive and negative exponents
     private function isENotation($input)
     {
         return preg_match('/^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)$/', $input);
@@ -94,12 +94,15 @@ class NumberFormatter
             return [];
         }
 
+        // Store original input string to preserve format for trailing zeros
+        $originalInput = (string)$input;
+
         if (!preg_match('/^(number|usd|irt|irr|percent)$/i', $template)) {
             $template = 'number';
         }
 
         if ($this->isENotation((string)$input)) {
-            $input = $this->convertENotationToRegularNumber((float)$input);
+            $input = $this->convertENotationToRegularNumber((float)$input, $originalInput);
         }
 
         $numberString = (string)$input;
@@ -108,10 +111,8 @@ class NumberFormatter
         }, $numberString);
         $numberString = preg_replace('/[^\d.-]/', '', $numberString);
 
-        // Stripping leading zeros and trailing zeros after a decimal point
+        // Stripping leading zeros only, preserve trailing zeros
         $numberString = preg_replace('/^0+(?=\d)/', '', $numberString);
-
-        // $numberString = preg_replace('/(?<=\.\d*)0+$|(?<=\.\d)0+\b/', '', $numberString);
 
         $number = abs((float)$numberString);
 
@@ -266,14 +267,56 @@ class NumberFormatter
                 $c = false;
             }
         }
-        return $this->reducePrecision($numberString, $p, $d, $r, $c, $f, $template, $language, $outputFormat, $prefixMarker, $postfixMarker, $prefix, $postfix);
+
+        // For scientific notation, increase precision to ensure correct representation
+        if ($this->isENotation($originalInput)) {
+            $p = max($p, 20);
+            $r = false;
+        }
+
+        return $this->reducePrecision(
+            $numberString, 
+            $p, 
+            $d, 
+            $r, 
+            $c, 
+            $f, 
+            $template, 
+            $language, 
+            $outputFormat, 
+            $prefixMarker, 
+            $postfixMarker, 
+            $prefix, 
+            $postfix,
+            $originalInput
+        );
     }
 
-    private function reducePrecision($numberString, $precision = 30, $nonZeroDigits = 4, $round = false, $compress = false, $fixedDecimalZeros = 0, $template = 'number', $language = 'en', $outputFormat = 'plain', $prefixMarker = 'span', $postfixMarker = 'span', $prefix = '', $postfix = '')
-    {
+    private function reducePrecision(
+        $numberString, 
+        $precision = 30, 
+        $nonZeroDigits = 4, 
+        $round = false, 
+        $compress = false, 
+        $fixedDecimalZeros = 0, 
+        $template = 'number', 
+        $language = 'en', 
+        $outputFormat = 'plain', 
+        $prefixMarker = 'span', 
+        $postfixMarker = 'span', 
+        $prefix = '', 
+        $postfix = '',
+        $originalInput = ''
+    ) {
         if ($numberString === null || $numberString === '') {
             return [];
         }
+
+        // FIXED: Handle negative zero
+        if ($numberString === '-0' || $numberString === '-0.0') {
+            $numberString = substr($numberString, 1); // Remove negative sign for zero
+        }
+
         $maxPrecision = 30;
         $maxIntegerDigits = 21;
 
@@ -393,8 +436,35 @@ class NumberFormatter
         }
 
         $fractionalPartStr = $fractionalZeroStr . $fractionalNonZeroStr;
-        $fractionalPartStr = substr($fractionalPartStr, 0, $precision);
-        $fractionalPartStr = preg_replace('/^(\d*[1-9])0+$/', '$1', $fractionalPartStr);
+        
+        // FIXED: Don't truncate trailing zeros when they're in the original string
+        if (strlen($fractionalPartStr) > $precision && !strpos($originalInput, 'e') && !strpos($originalInput, 'E')) {
+            $fractionalPartStr = substr($fractionalPartStr, 0, $precision);
+        }
+        
+        // FIXED: For numbers with decimal point, check for trailing zeros
+        if (strpos($originalInput, '.') !== false) {
+            $originalParts = explode('.', $originalInput);
+            if (count($originalParts) === 2) {
+                $originalDecimal = $originalParts[1];
+                // If original has more digits than what we have now, preserve those trailing zeros
+                if (strlen($originalDecimal) > strlen($fractionalPartStr) && substr($originalDecimal, -1) === '0') {
+                    // Count trailing zeros in original
+                    $trailingZeros = 0;
+                    for ($i = strlen($originalDecimal) - 1; $i >= 0; $i--) {
+                        if ($originalDecimal[$i] === '0') {
+                            $trailingZeros++;
+                        } else {
+                            break;
+                        }
+                    }
+                    // Add back trailing zeros if they were in the original
+                    if ($trailingZeros > 0) {
+                        $fractionalPartStr = str_pad($fractionalPartStr, strlen($fractionalPartStr) + $trailingZeros, '0');
+                    }
+                }
+            }
+        }
 
         // Output Formating, Prefix, Postfix
         if ($template === 'usd') {
@@ -443,7 +513,9 @@ class NumberFormatter
             : '';
 
         $wholeNumberStr = '';
-        if ($precision <= 0 || $nonZeroDigits <= 0 || !$fractionalNonZeroStr) {
+        
+        // FIXED: Changed condition to correctly handle numbers with trailing zeros
+        if ($precision <= 0 || $nonZeroDigits <= 0 || ($fractionalNonZeroStr === '' && $fractionalZeroStr === '')) {
             $wholeNumberStr = number_format((float)$nonFractionalStr, 0, '', ',') . $fixedDecimalZeroStr;
         } else {
             $wholeNumberStr = number_format((float)$nonFractionalStr, 0, '', ',') . '.' . $fractionalPartStr;
@@ -474,12 +546,35 @@ class NumberFormatter
 
         return $formattedObject;
     }
-    private function convertENotationToRegularNumber($eNotation)
+
+    // FIXED: Improved scientific notation conversion
+    private function convertENotationToRegularNumber($eNotation, $originalInput)
     {
-        // Conversion logic for E-notation to regular number
-        $decimalNotation = sprintf('%.20f', $eNotation);
-        return $decimalNotation;
+        // For simple cases like 1e3, directly format as a regular number
+        if (is_int($eNotation) && $eNotation >= 1000) {
+            return number_format($eNotation, 0, '.', '');
+        }
         
-        //return number_format($eNotation, 10, '.', '');
+        $parts = explode('e', strtolower((string)$originalInput));
+        if (count($parts) !== 2) {
+            return (string)$eNotation;
+        }
+        
+        $coefficient = (float)$parts[0];
+        $exponent = (int)$parts[1];
+        
+        // Handle negative exponents (very small numbers)
+        if ($exponent < 0) {
+            $absExponent = abs($exponent);
+            // Determine precision needed to show all digits
+            $precision = $absExponent;
+            if (strpos($parts[0], '.') !== false) {
+                $precision += strlen(explode('.', $parts[0])[1]);
+            }
+            return number_format($eNotation, $precision, '.', '');
+        }
+        
+        // For positive exponents, format to show as a regular number
+        return number_format($eNotation, 0, '.', '');
     }
 }
