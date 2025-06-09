@@ -552,37 +552,19 @@ class NumberFormatter {
         });
     }
 
-    // Check if the original input had trailing zeros
     let fractionalPartStr = `${fractionalZeroStr}${fractionalNonZeroStr}`;
-    // Don't truncate trailing zeros when they're in the original string
-    if (fractionalPartStr.length > precision && !originalInput.includes('e')) {
-      fractionalPartStr = fractionalPartStr.substring(0, precision);
-    }
-    
-    // For scientific notation and numbers with trailing zeros, preserve the format
-    if (originalInput.includes('e') || originalInput.includes('E')) {
-      // For scientific notation, use the converted string
-    } else if (originalInput.includes('.')) {
-      // For regular numbers with decimal point, check for trailing zeros
-      const originalParts = originalInput.split('.');
-      if (originalParts.length === 2) {
-        const originalDecimal = originalParts[1];
-        // If original has more digits than what we have now, preserve those trailing zeros
-        if (originalDecimal.length > fractionalPartStr.length && originalDecimal.endsWith('0')) {
-          // Count trailing zeros in original
-          let trailingZeros = 0;
-          for (let i = originalDecimal.length - 1; i >= 0; i--) {
-            if (originalDecimal[i] === '0') {
-              trailingZeros++;
-            } else {
-              break;
-            }
-          }
-          // Add back trailing zeros if they were in the original
-          if (trailingZeros > 0) {
-            fractionalPartStr = fractionalPartStr.padEnd(fractionalPartStr.length + trailingZeros, '0');
-          }
-        }
+
+    // Preserve fractional part from originalInput if it contains a decimal separator
+    if (originalInput.includes('.')) {
+      const originalDecimalPart = originalInput.split('.')[1] || '';
+      fractionalPartStr = originalDecimalPart;
+    } else {
+      // Apply fixedDecimalZeros only if originalInput doesn't have a decimal separator
+      if (fixedDecimalZeros > 0 && fractionalPartStr.length === 0) {
+        fractionalPartStr = ''.padEnd(fixedDecimalZeros, '0');
+      } else if (fractionalPartStr.length > precision && !originalInput.includes('e')) {
+        // original logic for truncation when not guided by originalInput's decimal
+        fractionalPartStr = fractionalPartStr.substring(0, precision);
       }
     }
 
@@ -616,25 +598,35 @@ class NumberFormatter {
     }
 
     const thousandSeparatorRegex = /\B(?=(\d{3})+(?!\d))/g;
-    const fixedDecimalZeroStr = fixedDecimalZeros
-      ? '.'.padEnd(fixedDecimalZeros + 1, '0')
-      : '';
     let out = '';
     let wholeNumberStr;
-    
-    // FIXED: Changed condition to correctly handle numbers with trailing zeros
-    // Old condition: if (precision <= 0 || nonZeroDigits <= 0 || !fractionalNonZeroStr) {
-    // New condition checks if both fractional parts are empty
-    if (precision <= 0 || nonZeroDigits <= 0 || (fractionalNonZeroStr === '' && fractionalZeroStr === '')) {
-      wholeNumberStr = `${nonFractionalStr.replace(
-        thousandSeparatorRegex,
-        ','
-      )}${fixedDecimalZeroStr}`;
+
+    const formattedNonFractionalStr = nonFractionalStr.replace(thousandSeparatorRegex, thousandSeparator);
+
+    if (originalInput.includes('.')) {
+      const endsWithDecimal = originalInput.endsWith('.');
+      if (fractionalPartStr === '' && !endsWithDecimal) {
+        // Input like "123" (no decimal in original, but somehow fractionalPartStr is empty now)
+        // or input like "123.0" and fractionalPartStr became ""
+        // We should not add a decimal point if original didn't imply it or fractional part is truly zero.
+        wholeNumberStr = formattedNonFractionalStr;
+        // if fixedDecimalZeros is set and originalInput didn't have a decimal, it's handled above
+      } else {
+        // Handles "123.45", "123.", ".45"
+        // If endsWithDecimal is true (e.g. "123."), fractionalPartStr might be "" but we still want the separator.
+        wholeNumberStr = `${formattedNonFractionalStr}${decimalSeparator}${fractionalPartStr}`;
+      }
     } else {
-      wholeNumberStr = `${nonFractionalStr.replace(
-        thousandSeparatorRegex,
-        ','
-      )}.${fractionalPartStr}`;
+      // originalInput does not contain "."
+      if (fractionalPartStr.length > 0) {
+        wholeNumberStr = `${formattedNonFractionalStr}${decimalSeparator}${fractionalPartStr}`;
+      } else if (fixedDecimalZeros > 0) {
+        // This case is now handled by fractionalPartStr padding logic if originalInput has no decimal
+        wholeNumberStr = `${formattedNonFractionalStr}${decimalSeparator}${ ''.padEnd(fixedDecimalZeros, '0')}`;
+      }
+      else {
+        wholeNumberStr = formattedNonFractionalStr;
+      }
     }
 
     out = `${sign}${unitPrefix}${wholeNumberStr}${unitPostfix}`;
@@ -647,14 +639,44 @@ class NumberFormatter {
       wholeNumber: wholeNumberStr,
     };
 
-    // replace custom config
-    formattedObject.value = (formattedObject?.value ?? '')
-      .replace(/,/g, thousandSeparator)
-      .replace(/\./g, decimalSeparator);
+    // replace custom config --千分位和自定义小数分隔符已经提前处理
+    // formattedObject.value = (formattedObject?.value ?? '')
+    //   .replace(/,/g, thousandSeparator) // Thousand separators are applied in wholeNumberStr construction
+    //   .replace(/\./g, decimalSeparator); // Decimal separator is applied in wholeNumberStr construction
+
+    // Ensure the final value uses the correct decimal separator if not already applied
+    // This is more of a safeguard, as logic above should handle it.
+    if (language === 'fa' && decimalSeparator === '٬') {
+       // For FA, ensure dot is replaced if it somehow slipped through, though wholeNumberStr should use decimalSeparator
+       formattedObject.value = (formattedObject.value ?? '').replace(/\./g, decimalSeparator);
+    } else if (decimalSeparator !== '.') {
+       // For any custom decimal separator other than '.', ensure it's correctly applied.
+       // This mainly catches cases where default '.' might have been used if logic branches were missed.
+       // The construction of wholeNumberStr should ideally prevent this.
+       formattedObject.value = (formattedObject.value ?? '').replace(/\./g, decimalSeparator);
+    }
+    // Thousand separators are already applied to nonFractionalStr before this point.
 
     // Convert output to Persian numerals if language is "fa"
+    // Also, ensure that the decimalSeparator for 'fa' is correctly used if it was temporarily a '.'
     if (language === 'fa') {
-      formattedObject.value = (formattedObject?.value ?? '')
+      let val = formattedObject.value ?? '';
+      // If English decimal separator was used due to direct originalInput copy, replace it.
+      if (decimalSeparator === '٬') { //Specific for fa
+        val = val.replace(/\./g, decimalSeparator);
+      }
+      val = val.replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
+        .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
+          return String(scaleUnits[c as keyof typeof scaleUnits]);
+        });
+      formattedObject.value = val;
+
+      // Apply to other parts as well
+      let faWholeNumber = formattedObject.wholeNumber;
+      if (decimalSeparator === '٬') {
+        faWholeNumber = faWholeNumber.replace(/\./g, decimalSeparator);
+      }
+      formattedObject.wholeNumber = faWholeNumber
         .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
         .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
           return String(scaleUnits[c as keyof typeof scaleUnits]);
@@ -671,13 +693,14 @@ class NumberFormatter {
         .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
           return String(scaleUnits[c as keyof typeof scaleUnits]);
         });
-
-      formattedObject.wholeNumber = formattedObject.wholeNumber
-        .replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
-        .replace(/(K|M|B|T|Qt|Qd)/g, function (c: string) {
-          return String(scaleUnits[c as keyof typeof scaleUnits]);
-        });
+    } else {
+      // Ensure correct decimal separator for non-'fa' languages if it's not '.'
+      if (decimalSeparator !== '.') {
+        formattedObject.value = (formattedObject.value ?? '').replace(/\./g, decimalSeparator);
+        formattedObject.wholeNumber = formattedObject.wholeNumber.replace(/\./g, decimalSeparator);
+      }
     }
+
 
     return formattedObject;
   }
