@@ -58,8 +58,25 @@ class NumberFormatter {
   };
 
   constructor(options: Options = {}) {
-    this.options = { ...this.options, ...options };
+    // Start with default options (which includes 'en' specific settings)
+    let newOptions = { ...this.options };
+
+    // If a language is specified in the incoming options,
+    // apply the defaults for that language first.
+    if (options.language) {
+      const langDefaults = this.defaultLanguageConfig[options.language];
+      if (langDefaults) {
+        newOptions = { ...newOptions, ...langDefaults, language: options.language };
+      }
+    }
+
+    // Then, apply all incoming options, allowing them to override.
+    // This ensures options.precision, options.decimalSeparator (if any), etc., take precedence.
+    newOptions = { ...newOptions, ...options };
+
+    this.options = newOptions;
   }
+
   setLanguage(lang: Language, config: LanguageConfig = {}): NumberFormatter {
     this.options.language = lang;
     this.options.prefixMarker =
@@ -232,8 +249,8 @@ class NumberFormatter {
       }
     } else if (precision === 'low') {
       if (number >= 0 && number < 0.01) {
-        p = 2;
-        d = 0;
+        p = 4;
+        d = 2;
         r = true;
         c = false;
         f = 2;
@@ -434,7 +451,7 @@ class NumberFormatter {
           Qt: ' کنتیلیون تومان',
         };
 
-    let parts = /^(-)?(\d+)\.?([0]*)(\d*)$/g.exec(numberString);
+    let parts = /^(-)?(\d*)\.?([0]*)(\d*)$/g.exec(numberString);
 
     if (!parts) {
       return {} as FormattedObject;
@@ -442,6 +459,7 @@ class NumberFormatter {
 
     const sign = parts[1] || '';
     let nonFractionalStr = parts[2];
+    nonFractionalStr = nonFractionalStr || '0';
     let fractionalZeroStr = parts[3];
     let fractionalNonZeroStr = parts[4];
     let unitPrefix = '';
