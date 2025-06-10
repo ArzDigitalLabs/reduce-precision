@@ -142,22 +142,42 @@ class NumberFormatter {
     const originalInput = input.toString();
 
 if (template === 'liveformat') {
-  let currentInput = originalInput;
+  let currentInput = this._sanitizeLiveInput(originalInput);
 
-  // Convert Farsi/Arabic numerals to Western numerals for internal processing
-  currentInput = currentInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
+  // Define locale-specific separators early as they might be needed by "0.0eX" override
+  const currentThousandSeparator = thousandSeparator || ',';
+  const currentDecimalSeparator = decimalSeparator || '.';
+
+  // Special case override for "0.0eX" inputs (e.g., "0.0e0", "۰٫۰e۳")
+  // This is to preserve the "0.0" part if originalInput indicated it,
+  // as _sanitizeLiveInput might convert such inputs to just "0".
+  // We inspect originalInput because _sanitizeLiveInput would have already converted its Farsi digits.
+  const originalInputIsENotation = this.isENotation(originalInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
     return String(match.charCodeAt(0) & 0xf);
-  });
+  }));
 
-  // Handle potential E-notation in originalInput
-  if (this.isENotation(currentInput)) {
-    const numVal = Number(originalInput);
-    // If the number is 0 but original string starts with "0.0" (e.g., "0.0e0"), preserve "0.0" part.
-    if (numVal === 0 && originalInput.toLowerCase().startsWith('0.0')) {
-        const parts = originalInput.toLowerCase().split('e');
-        currentInput = parts[0]; // This preserves "0.0" from "0.0e..."
-    } else {
-        currentInput = this.convertENotationToRegularNumber(numVal);
+  if (originalInputIsENotation) {
+    const numValOriginal = Number(originalInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
+        return String(match.charCodeAt(0) & 0xf);
+    })); // Number from potentially Farsi-digit E-notation string
+
+    if (numValOriginal === 0) {
+      // Check if originalInput (before 'e') looked like "0.0", "0.00", "۰٫۰", "۰٫۰۰" etc.
+      const eIndex = originalInput.toLowerCase().indexOf('e');
+      if (eIndex > -1) {
+        const partBeforeEOriginal = originalInput.substring(0, eIndex);
+        // Convert partBeforeEOriginal's Farsi digits to Western for regex matching & consistent storage
+        const partBeforeEWestern = partBeforeEOriginal.replace(/[٠-٩۰-۹]/g, function (match: string) {
+            return String(match.charCodeAt(0) & 0xf);
+        });
+        // Now check if this Western digit version (still with original separator) matches "0.decimalzeros"
+        // It should use the locale specific decimal separator for this check, or normalize it.
+        // For simplicity, let's check against "0." pattern after Farsi digits are Western.
+        // The decimal separator in partBeforeEWestern could be '٫' or '.'.
+        if (partBeforeEWestern.match(/^0(\.|٫)0*$/)) {
+          currentInput = partBeforeEWestern.replace('٫', currentDecimalSeparator); // Ensure currentInput uses currentDecimalSeparator
+        }
+      }
     }
   }
 
@@ -167,8 +187,8 @@ if (template === 'liveformat') {
     currentInput = currentInput.substring(1); // currentInput is now the absolute numeric string
   }
 
-  const currentThousandSeparator = thousandSeparator || ',';
-  const currentDecimalSeparator = decimalSeparator || '.';
+  // const currentThousandSeparator = thousandSeparator || ','; // Moved up
+  // const currentDecimalSeparator = decimalSeparator || '.'; // Moved up
 
   if (currentInput === '') {
     return {
@@ -255,19 +275,8 @@ if (template === 'liveformat') {
   // At this point, finalValue is the formatted absolute number string (Western digits, Farsi/default separators).
   // sign is the extracted input sign ('-' or '').
 
-  let outputFormattedAbsoluteValue = finalValue; // e.g., "0.12" or "1,234.56"
-  if (this.options.language === 'fa') {
-    let farsiConvertedValue = "";
-    for (let i = 0; i < finalValue.length; i++) { // Convert finalValue (absolute, Western digits)
-      const char = finalValue[i];
-      if (char >= '0' && char <= '9') {
-        farsiConvertedValue += String.fromCharCode(char.charCodeAt(0) + 1728);
-      } else {
-        farsiConvertedValue += char;
-      }
-    }
-    outputFormattedAbsoluteValue = farsiConvertedValue; // e.g., "۰٫۱۲" or "۱٬۲۳۴٫۵۶"
-  }
+  // Convert finalValue to Farsi digits if necessary for the absolute part.
+  const outputFormattedAbsoluteValue = this._convertToFarsiDigits(finalValue);
 
   let outputSign = '';
   // Determine the final sign string.
@@ -856,6 +865,39 @@ if (template === 'liveformat') {
     }
 
     return formattedObject;
+  }
+
+  private _sanitizeLiveInput(input: string): string {
+    let sanitizedInput = input;
+
+    // Convert Farsi/Arabic numerals to Western numerals
+    sanitizedInput = sanitizedInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
+      return String(match.charCodeAt(0) & 0xf);
+    });
+
+    // Handle potential E-notation
+    if (this.isENotation(sanitizedInput)) {
+      sanitizedInput = this.convertENotationToRegularNumber(Number(sanitizedInput));
+    }
+
+    return sanitizedInput;
+  }
+
+  private _convertToFarsiDigits(value: string): string {
+    if (this.options.language !== 'fa' || value === null || value === undefined) {
+      return value;
+    }
+
+    let farsiConvertedValue = "";
+    for (let i = 0; i < value.length; i++) {
+      const char = value[i];
+      if (char >= '0' && char <= '9') {
+        farsiConvertedValue += String.fromCharCode(char.charCodeAt(0) + 1728);
+      } else {
+        farsiConvertedValue += char;
+      }
+    }
+    return farsiConvertedValue;
   }
 }
 
