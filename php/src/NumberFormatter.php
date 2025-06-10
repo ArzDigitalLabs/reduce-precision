@@ -5,29 +5,76 @@ namespace NumberFormatter;
 class NumberFormatter
 {
     private $options;
+    private $languageBaseConfig = [
+        'prefixMarker' => 'i',
+        'postfixMarker' => 'i',
+        'prefix' => '',
+        'postfix' => '',
+    ];
+
+    private $defaultLanguageConfig = [
+        'en' => [
+            'thousandSeparator' => ',',
+            'decimalSeparator' => '.',
+        ],
+        'fa' => [
+            'thousandSeparator' => '٫',
+            'decimalSeparator' => '٬',
+        ],
+    ];
 
     public function __construct($options = [])
     {
-        $this->options = [
+        // Initialize defaultLanguageConfig by merging base for each language
+        $this->defaultLanguageConfig['en'] = array_merge($this->languageBaseConfig, $this->defaultLanguageConfig['en']);
+        $this->defaultLanguageConfig['fa'] = array_merge($this->languageBaseConfig, $this->defaultLanguageConfig['fa']);
+
+        // Start with default options (which includes 'en' specific settings)
+        $newOptions = array_merge([
             'language' => 'en',
             'template' => 'number',
             'precision' => 'high',
             'outputFormat' => 'plain',
-            'prefixMarker' => 'i',
-            'postfixMarker' => 'i',
-            'prefix' => '',
-            'postfix' => '',
-        ];
-        $this->options = array_merge($this->options, $options);
+        ], $this->defaultLanguageConfig['en']);
+
+        // If a language is specified in the incoming options,
+        // apply the defaults for that language first.
+        if (isset($options['language']) && isset($this->defaultLanguageConfig[$options['language']])) {
+            $langDefaults = $this->defaultLanguageConfig[$options['language']];
+            // Merge general lang defaults, then ensure the specified language itself is set, then merge specific options for that lang from $options
+            $newOptions = array_merge($newOptions, $langDefaults, ['language' => $options['language']]);
+        }
+
+        // Then, apply all incoming options, allowing them to override.
+        // This ensures that options like 'prefix', 'postfix', etc. from $options override language defaults if provided.
+        $this->options = array_merge($newOptions, $options);
     }
 
     public function setLanguage($lang, $config = [])
     {
         $this->options['language'] = $lang;
-        $this->options['prefixMarker'] = $config['prefixMarker'] ?? $this->options['prefixMarker'];
-        $this->options['postfixMarker'] = $config['postfixMarker'] ?? $this->options['postfixMarker'];
-        $this->options['prefix'] = $config['prefix'] ?? $this->options['prefix'];
-        $this->options['postfix'] = $config['postfix'] ?? $this->options['postfix'];
+        // Fallback to 'en' if the specified language or its defaults aren't fully defined.
+        // Ensure defaultLanguageConfig has been initialized (e.g. by constructor having run)
+        if (!isset($this->defaultLanguageConfig[$lang]) || !is_array($this->defaultLanguageConfig[$lang])) {
+             // This case should ideally not happen if languages are pre-configured in constructor
+            $langDefaults = $this->defaultLanguageConfig['en'];
+        } else {
+            $langDefaults = $this->defaultLanguageConfig[$lang];
+        }
+        // Ensure 'en' defaults are complete if somehow accessed before full constructor merge for 'en'
+        // (though constructor order should prevent this)
+        if ($lang === 'en' && ( !isset($this->defaultLanguageConfig['en']['prefixMarker']) || $this->defaultLanguageConfig['en']['prefixMarker'] === null ) ){
+             $this->defaultLanguageConfig['en'] = array_merge($this->languageBaseConfig, $this->defaultLanguageConfig['en']);
+             $langDefaults = $this->defaultLanguageConfig['en'];
+        }
+
+
+        $this->options['prefixMarker'] = $config['prefixMarker'] ?? $langDefaults['prefixMarker'];
+        $this->options['postfixMarker'] = $config['postfixMarker'] ?? $langDefaults['postfixMarker'];
+        $this->options['prefix'] = $config['prefix'] ?? $langDefaults['prefix'];
+        $this->options['postfix'] = $config['postfix'] ?? $langDefaults['postfix'];
+        $this->options['thousandSeparator'] = $config['thousandSeparator'] ?? $langDefaults['thousandSeparator'];
+        $this->options['decimalSeparator'] = $config['decimalSeparator'] ?? $langDefaults['decimalSeparator'];
         return $this;
     }
 
@@ -188,8 +235,8 @@ class NumberFormatter
             }
         } elseif ($precision === 'low') {
             if ($number >= 0 && $number < 0.01) {
-                $p = 2;
-                $d = 0;
+                $p = 4; // Was 2
+                $d = 2; // Was 0
                 $r = true;
                 $c = false;
                 $f = 2;
@@ -270,8 +317,10 @@ class NumberFormatter
 
         // For scientific notation, increase precision to ensure correct representation
         if ($this->isENotation($originalInput)) {
-            $p = max($p, 20);
-            $r = false;
+            // $p = max($p, 20); // Removed: $p from precision settings should be respected.
+                                // convertENotationToRegularNumber produces enough digits.
+                                // reducePrecision will truncate to $p from settings.
+            $r = false; // Rounding is usually not desired for E-notation raw conversion
         }
 
         return $this->reducePrecision(
@@ -308,9 +357,11 @@ class NumberFormatter
         $postfix = '',
         $originalInput = ''
     ) {
-        if ($numberString === null || $numberString === '') {
+        if ($numberString === null || (is_string($numberString) && trim($numberString) === '')) {
             return [];
         }
+        // Ensure numberString is a string for subsequent operations
+        $numberString = (string)$numberString;
 
         // FIXED: Handle negative zero
         if ($numberString === '-0' || $numberString === '-0.0') {
@@ -340,17 +391,34 @@ class NumberFormatter
                 'Qt' => ' میلیون همت',
             ];
 
+        // Add fullScaleUnits, similar to ts/js
+        $fullScaleUnits = preg_match('/^(number|percent)$/i', $template)
+          ? [
+                '' => '', 'K' => ' هزار', 'M' => ' میلیون', 'B' => ' میلیارد',
+                'T' => ' تریلیون', 'Qd' => ' کادریلیون', 'Qt' => ' کنتیلیون',
+            ]
+          : [
+                '' => '', 'K' => ' هزار تومان', 'M' => ' میلیون تومان', 'B' => ' میلیارد تومان',
+                'T' => ' هزار میلیارد تومان', 'Qd' => ' کادریلیون تومان', 'Qt' => ' کنتیلیون تومان',
+            ];
+
         $parts = [];
-        preg_match('/^(-)?(\d+)\.?([0]*)(\d*)$/u', $numberString, $parts);
+        // Changed \d+ to \d* for the non-fractional part
+        preg_match('/^(-)?(\d*)\.?([0]*)(\d*)$/u', $numberString, $parts);
 
         if (empty($parts)) {
+            // This case should ideally not be reached if numberString is validated,
+            // but as a fallback.
             return [];
         }
 
-        $sign = isset($parts[1]) ? $parts[1] : '';
-        $nonFractionalStr = $parts[2];
-        $fractionalZeroStr = $parts[3];
-        $fractionalNonZeroStr = $parts[4];
+        $sign = $parts[1] ?? '';
+        $nonFractionalStr = $parts[2] ?? '';
+        if ($nonFractionalStr === '') {
+            $nonFractionalStr = '0';
+        }
+        $fractionalZeroStr = $parts[3] ?? '';
+        $fractionalNonZeroStr = $parts[4] ?? '';
 
         $unitPrefix = '';
         $unitPostfix = '';
@@ -436,33 +504,52 @@ class NumberFormatter
         }
 
         $fractionalPartStr = $fractionalZeroStr . $fractionalNonZeroStr;
-        
-        // FIXED: Don't truncate trailing zeros when they're in the original string
-        if (strlen($fractionalPartStr) > $precision && !strpos($originalInput, 'e') && !strpos($originalInput, 'E')) {
-            $fractionalPartStr = substr($fractionalPartStr, 0, $precision);
-        }
-        
-        // FIXED: For numbers with decimal point, check for trailing zeros
-        if (strpos($originalInput, '.') !== false) {
-            $originalParts = explode('.', $originalInput);
-            if (count($originalParts) === 2) {
-                $originalDecimal = $originalParts[1];
-                // If original has more digits than what we have now, preserve those trailing zeros
-                if (strlen($originalDecimal) > strlen($fractionalPartStr) && substr($originalDecimal, -1) === '0') {
-                    // Count trailing zeros in original
-                    $trailingZeros = 0;
-                    for ($i = strlen($originalDecimal) - 1; $i >= 0; $i--) {
-                        if ($originalDecimal[$i] === '0') {
-                            $trailingZeros++;
-                        } else {
-                            break;
-                        }
-                    }
-                    // Add back trailing zeros if they were in the original
-                    if ($trailingZeros > 0) {
-                        $fractionalPartStr = str_pad($fractionalPartStr, strlen($fractionalPartStr) + $trailingZeros, '0');
-                    }
-                }
+
+        // Logic for $fractionalPartStr based on $originalInput and $fixedDecimalZeros
+        if ($this->isENotation($originalInput)) {
+            // If original was E-notation, use the decimal part from the already converted $numberString
+            $partsFromConverted = explode('.', $numberString, 2);
+            $currentFractionalPart = $partsFromConverted[1] ?? '';
+            // If the E-notation converted to an integer (e.g. 1e3 -> 1000), there's no fractional part from it.
+            // In this case, $fractionalPartStr (from $fractionalZeroStr . $fractionalNonZeroStr) might be relevant if any rounding created it.
+            // However, typically for E-notation, we want its precise decimal value or what $originalInput implies.
+            // Let's assume $numberString is the definitive plain version.
+            $fractionalPartStr = $currentFractionalPart;
+            // If $fixedDecimalZeros is active AND the number string from e-notation is an integer (e.g. "1000" from 1e3)
+            // AND originalInput did not have a decimal (e.g. "1e3" not "1.0e3")
+            // This is complex. The TS logic is: if originalInput has '.', use its decimal part.
+            // Else (no decimal in originalInput OR originalInput was E-notation that resolved to integer):
+            //   apply fixedDecimalZeros if fractionalPart is empty
+            //   else if fractionalPart > precision and not E-notation, truncate.
+            // The key is: if originalInput is E-notation, its *original form* does not dictate trailing zeros
+            // like "1.20" does. Instead, its *value* dictates the digits.
+            // The $numberString (e.g. "0.000010") is the value. Its fractional part is "000010".
+            // This "000010" should be subject to $precision.
+             if (strlen($fractionalPartStr) > $precision) {
+                 $fractionalPartStr = substr($fractionalPartStr, 0, $precision);
+             }
+
+        } elseif (strpos($originalInput, '.') !== false) { // Original input was not E-notation, but has a decimal
+            $originalDecimalPart = explode('.', $originalInput, 2)[1] ?? '';
+            // Default to original decimal part
+            $fractionalPartStr = $originalDecimalPart;
+
+            // Special case: if $originalInput ends with "." (e.g. "0.", "123.")
+            // AND its decimal part is empty
+            // AND $fixedDecimalZeros is applicable
+            // AND template is percent (more targeted fix)
+            if (substr($originalInput, -1) === '.' && $originalDecimalPart === '' && $fixedDecimalZeros > 0 && $template === 'percent') {
+                $fractionalPartStr = str_pad('', $fixedDecimalZeros, '0');
+            }
+            // Note: No further truncation based on $precision here for other cases, as originalInput's decimal part is king.
+        } else { // Original input was not E-notation and no decimal (integer string or empty)
+            // $fractionalPartStr is still $fractionalZeroStr . $fractionalNonZeroStr
+            if ($fixedDecimalZeros > 0 && $fractionalPartStr === '') {
+                $fractionalPartStr = str_pad('', $fixedDecimalZeros, '0');
+            } elseif (strlen($fractionalPartStr) > $precision) {
+                // This is the original truncation logic if not guided by originalInput's decimal.
+                // Added check to avoid truncating if originalInput was E, which is handled above.
+                $fractionalPartStr = substr($fractionalPartStr, 0, $precision);
             }
         }
 
@@ -506,19 +593,45 @@ class NumberFormatter
             }
         }
 
-        $thousandSeparatorRegex = '/\B(?=(\d{3})+(?!\d))/';
+        // Fetch separators from $this->options
+        $optionsThousandSeparator = $this->options['thousandSeparator'] ?? ',';
+        $optionsDecimalSeparator = $this->options['decimalSeparator'] ?? '.';
 
-        $fixedDecimalZeroStr = $fixedDecimalZeros
-            ? str_pad('.', $fixedDecimalZeros + 1, '0')
-            : '';
+        // Convert $nonFractionalStr to float for number_format, then to string.
+        // number_format will use standard English comma for thousands if a separator isn't specified for it.
+        // We want to apply the $optionsThousandSeparator.
+        // The easiest way to apply a custom thousand separator is often string replacement after formatting with a placeholder,
+        // or by formatting without a thousand separator and then manually inserting it.
+        // For simplicity with number_format, we format without its own thousands, then add ours.
+        // However, the provided TS/JS logic implies direct construction.
+        // Let's use number_format for the number part, then replace.
 
-        $wholeNumberStr = '';
+        // First, ensure $nonFractionalStr is just digits for number_format if it's being used for formatting the number itself.
+        // Or, more simply, apply thousand separator using regex substitution if $nonFractionalStr is already prepared.
+        $tempFormattedNonFractionalStr = preg_replace('/\B(?=(\d{3})+(?!\d))/', '$PLACEHOLDER$', $nonFractionalStr);
+        $formattedNonFractionalStr = str_replace('$PLACEHOLDER$', $optionsThousandSeparator, $tempFormattedNonFractionalStr);
+
+        if ($nonFractionalStr === '0' && $originalInput !== '' && $originalInput[0] === '.') {
+           $formattedNonFractionalStr = '0';
+        }
         
-        // FIXED: Changed condition to correctly handle numbers with trailing zeros
-        if ($precision <= 0 || $nonZeroDigits <= 0 || ($fractionalNonZeroStr === '' && $fractionalZeroStr === '')) {
-            $wholeNumberStr = number_format((float)$nonFractionalStr, 0, '', ',') . $fixedDecimalZeroStr;
+        $wholeNumberStr = '';
+        if (strpos($originalInput, '.') !== false) {
+            $endsWithDecimal = substr($originalInput, -1) === '.';
+            if ($fractionalPartStr === '' && !$endsWithDecimal) {
+                $wholeNumberStr = $formattedNonFractionalStr;
+            } else {
+                $wholeNumberStr = $formattedNonFractionalStr . $optionsDecimalSeparator . $fractionalPartStr;
+            }
         } else {
-            $wholeNumberStr = number_format((float)$nonFractionalStr, 0, '', ',') . '.' . $fractionalPartStr;
+            // originalInput does not contain "."
+            if (strlen($fractionalPartStr) > 0) {
+                $wholeNumberStr = $formattedNonFractionalStr . $optionsDecimalSeparator . $fractionalPartStr;
+            } elseif ($fixedDecimalZeros > 0) {
+                $wholeNumberStr = $formattedNonFractionalStr . $optionsDecimalSeparator . str_pad('', $fixedDecimalZeros, '0');
+            } else {
+                $wholeNumberStr = $formattedNonFractionalStr;
+            }
         }
 
         $out = $sign . $unitPrefix . $wholeNumberStr . $unitPostfix;
@@ -531,19 +644,53 @@ class NumberFormatter
             'wholeNumber' => $wholeNumberStr,
         ];
 
-        // Convert output to Persian numerals if language is "fa"
-        if ($language === 'fa') {
-            $formattedObject['value'] = preg_replace_callback('/[0-9]/', function ($match) {
-                return mb_chr(ord($match[0]) + 1728);
-            }, $formattedObject['value']);
-            $formattedObject['postfix'] = preg_replace_callback('/[0-9]/', function ($match) {
-                return mb_chr(ord($match[0]) + 1728);
-            }, $formattedObject['postfix']);
-            $formattedObject['wholeNumber'] = preg_replace_callback('/[0-9]/', function ($match) {
-                return mb_chr(ord($match[0]) + 1728);
-            }, $formattedObject['wholeNumber']);
-        }
+        // Final Separator Replacement and Persian Conversion
+        // $optionsDecimalSeparator and $optionsThousandSeparator are already fetched
 
+        // Ensure the final value uses the correct decimal separator.
+        // $wholeNumberStr is already built with correct separators.
+        // $out uses $wholeNumberStr. So $formattedObject['value'] (which is $out) should be mostly correct.
+        // This is a final check for cases where '.' might have been introduced if logic above missed something.
+        if ($language === 'fa' && $optionsDecimalSeparator === '٬') {
+           $formattedObject['value'] = str_replace('.', $optionsDecimalSeparator, $formattedObject['value'] ?? '');
+        } elseif ($optionsDecimalSeparator !== '.') {
+           $formattedObject['value'] = str_replace('.', $optionsDecimalSeparator, $formattedObject['value'] ?? '');
+        }
+        // Thousand separators were applied during $formattedNonFractionalStr creation.
+
+        if ($language === 'fa') {
+            $val = $formattedObject['value'] ?? '';
+            // Ensure correct decimal separator for 'fa' before converting numerals
+            if ($optionsDecimalSeparator === '٬') {
+                $val = str_replace('.', $optionsDecimalSeparator, $val); // Ensure conversion if originalInput had '.'
+            }
+            $val = preg_replace_callback('/[0-9]/', function ($m) { return mb_chr(ord($m[0]) + 1728); }, $val);
+            // $scaleUnits should be available from earlier in the function
+            $val = preg_replace_callback('/(K|M|B|T|Qt|Qd)/', function ($m) use ($scaleUnits) { return $scaleUnits[$m[0]] ?? $m[0]; }, $val);
+            $formattedObject['value'] = $val;
+
+            $faWholeNumber = $formattedObject['wholeNumber'];
+            if ($optionsDecimalSeparator === '٬') {
+                $faWholeNumber = str_replace('.', $optionsDecimalSeparator, $faWholeNumber);
+            }
+            $formattedObject['wholeNumber'] = preg_replace_callback('/[0-9]/', function ($m) { return mb_chr(ord($m[0]) + 1728); }, $faWholeNumber);
+            // No K,M,B in wholeNumber typically
+
+            // Add fullPostfix similar to TS
+            // $fullScaleUnits should be available from earlier in the function
+            $formattedObject['fullPostfix'] = preg_replace_callback('/[0-9]/', function ($m) { return mb_chr(ord($m[0]) + 1728); }, $unitPostfix); // $unitPostfix is set earlier
+            $formattedObject['fullPostfix'] = preg_replace_callback('/(K|M|B|T|Qt|Qd)/', function ($m) use ($fullScaleUnits) { return $fullScaleUnits[$m[0]] ?? $m[0]; }, $formattedObject['fullPostfix']);
+
+            $currentPostfix = $formattedObject['postfix'] ?? '';
+            $currentPostfix = preg_replace_callback('/[0-9]/', function ($m) { return mb_chr(ord($m[0]) + 1728); }, $currentPostfix);
+            $formattedObject['postfix'] = preg_replace_callback('/(K|M|B|T|Qt|Qd)/', function ($m) use ($scaleUnits) { return $scaleUnits[$m[0]] ?? $m[0]; }, $currentPostfix);
+        } else {
+            // Ensure correct decimal separator for non-'fa' languages if it's not '.'
+            if ($optionsDecimalSeparator !== '.') {
+                // $formattedObject['value'] already handled by the check before 'fa' block
+                $formattedObject['wholeNumber'] = str_replace('.', $optionsDecimalSeparator, $formattedObject['wholeNumber']);
+            }
+        }
         return $formattedObject;
     }
 
@@ -575,6 +722,15 @@ class NumberFormatter
         }
         
         // For positive exponents, format to show as a regular number
-        return number_format($eNotation, 0, '.', '');
+        // Preserve precision from coefficient for positive/zero exponent
+        $coeffDecimalLen = 0;
+        if (strpos($parts[0], '.') !== false) {
+            $coeffDecimalParts = explode('.', $parts[0], 2);
+            if (isset($coeffDecimalParts[1])) {
+                $coeffDecimalLen = strlen($coeffDecimalParts[1]);
+            }
+        }
+        // $eNotation is float, ensure formatting retains those decimals
+        return number_format((float)$eNotation, $coeffDecimalLen, '.', '');
     }
 }
