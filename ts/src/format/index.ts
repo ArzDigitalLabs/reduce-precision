@@ -1,4 +1,4 @@
-type Template = 'number' | 'usd' | 'irt' | 'irr' | 'percent' | 'incremental';
+type Template = 'number' | 'usd' | 'irt' | 'irr' | 'percent' | 'liveformat';
 type Precision = 'auto' | 'high' | 'medium' | 'low';
 type Language = 'en' | 'fa';
 type OutputFormat = 'plain' | 'html' | 'markdown';
@@ -141,7 +141,7 @@ class NumberFormatter {
     // Store original input string to preserve format for trailing zeros
     const originalInput = input.toString();
 
-if (template === 'incremental') {
+if (template === 'liveformat') {
   let currentInput = originalInput;
 
   // Handle potential E-notation in originalInput
@@ -252,7 +252,7 @@ if (template === 'incremental') {
   } as FormattedObject;
 }
 
-    if (!template?.match(/^(number|usd|irt|irr|percent|incremental)$/g))
+    if (!template?.match(/^(number|usd|irt|irr|percent|liveformat)$/g))
       template = 'number';
     
     if (this.isENotation(originalInput)) {

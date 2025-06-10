@@ -1,7 +1,7 @@
 import NumberFormatter from '../../src/format'; // Adjust path if necessary based on actual structure
 
-describe('NumberFormatter - Incremental Template', () => {
-  const options = { template: 'incremental' as any }; // Cast to any to allow new template type if TS is strict before build
+describe('NumberFormatter - Liveformat Template', () => {
+  const options = { template: 'liveformat' as any }; // Cast to any to allow new template type if TS is strict before build
 
   const testCases = [
     { input: '0', expected: '0' },
@@ -75,14 +75,14 @@ describe('NumberFormatter - Incremental Template', () => {
 
   // Test with different separators if possible, though the problem implies fixed separators for this template
   // For now, assuming default separators (',' and '.') as per examples
-  describe('NumberFormatter - Incremental Template with Fa Language (different separators)', () => {
+  describe('NumberFormatter - Liveformat Template with Fa Language (different separators)', () => {
     const faOptions = {
-        template: 'incremental' as any,
+        template: 'liveformat' as any,
         language: 'fa' as any // 'fa' uses '٫' and '٬'
     };
     const formatter = new NumberFormatter(); // Create once
     formatter.setLanguage('fa'); // Set language
-    formatter.setTemplate('incremental' as any, 'auto' as any); // Set template
+    formatter.setTemplate('liveformat' as any, 'auto' as any); // Set template
 
     // Test a few cases to ensure fa separators are used if logic is universal
     // The current implementation of incremental template hardcodes separators in regex.
