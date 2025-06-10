@@ -144,6 +144,11 @@ class NumberFormatter {
 if (template === 'liveformat') {
   let currentInput = originalInput;
 
+  // Convert Farsi/Arabic numerals to Western numerals for internal processing
+  currentInput = currentInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
+    return String(match.charCodeAt(0) & 0xf);
+  });
+
   // Handle potential E-notation in originalInput
   if (this.isENotation(currentInput)) {
     const numVal = Number(originalInput);
@@ -177,12 +182,16 @@ if (template === 'liveformat') {
 
   // Handles "0" (from input "0" or "-0")
   if (currentInput === '0') {
+    let outputZero = '0';
+    if (this.options.language === 'fa') {
+      outputZero = String.fromCharCode('0'.charCodeAt(0) + 1728); // Converts '0' to '۰'
+    }
     return {
-      value: '0', // "-0" becomes "0"
+      value: outputZero,
       prefix: '',
       postfix: '',
       sign: '', // Sign is empty for "0"
-      wholeNumber: '0',
+      wholeNumber: outputZero,
     } as FormattedObject;
   }
 
@@ -243,12 +252,41 @@ if (template === 'liveformat') {
     }
   }
 
+  // At this point, finalValue is the formatted absolute number string (Western digits, Farsi/default separators).
+  // sign is the extracted input sign ('-' or '').
+
+  let outputFormattedAbsoluteValue = finalValue; // e.g., "0.12" or "1,234.56"
+  if (this.options.language === 'fa') {
+    let farsiConvertedValue = "";
+    for (let i = 0; i < finalValue.length; i++) { // Convert finalValue (absolute, Western digits)
+      const char = finalValue[i];
+      if (char >= '0' && char <= '9') {
+        farsiConvertedValue += String.fromCharCode(char.charCodeAt(0) + 1728);
+      } else {
+        farsiConvertedValue += char;
+      }
+    }
+    outputFormattedAbsoluteValue = farsiConvertedValue; // e.g., "۰٫۱۲" or "۱٬۲۳۴٫۵۶"
+  }
+
+  let outputSign = '';
+  // Determine the final sign string.
+  // `finalValue` is absolute, western digits, locale separator e.g. "0", "0٫0", "0٫12", "123٫45"
+  // `sign` is the original sign from input, like "-"
+  if (sign === '-') {
+    if (finalValue === '0') { // Check if the absolute formatted value is literally "0"
+      outputSign = ''; // Only for "-0" input that results in "0" absolute
+    } else {
+      outputSign = '-'; // For all other cases like "-0.0", "-0.12", "-123"
+    }
+  }
+
   return {
-    value: resultValue,
+    value: outputSign + outputFormattedAbsoluteValue, // Prepend sign to Farsi/Western formatted absolute value
     prefix: '',
     postfix: '',
-    sign: resultSign,
-    wholeNumber: resultValue, // wholeNumber includes sign now
+    sign: outputSign, // Store the determined sign
+    wholeNumber: outputFormattedAbsoluteValue, // Store Farsi/Western formatted absolute value (unsigned)
   } as FormattedObject;
 }
 
