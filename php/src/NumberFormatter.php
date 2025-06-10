@@ -5,11 +5,26 @@ namespace NumberFormatter;
 class NumberFormatter
 {
     private $options;
+    private static $defaultLanguageConfig = [
+        'en' => [
+            'thousandSeparator' => ',',
+            'decimalSeparator' => '.',
+        ],
+        'fa' => [
+            'thousandSeparator' => '٬', // Correct: U+066C (ARABIC THOUSANDS SEPARATOR)
+            'decimalSeparator' => '٫',  // Correct: U+066B (ARABIC DECIMAL SEPARATOR)
+        ],
+        // Add other languages here if they have specific default separators not covered by base
+    ];
 
     public function __construct($options = [])
     {
-        $this->options = [
-            'language' => 'en',
+        $initialLanguage = $options['language'] ?? 'en';
+
+        $defaultSeparators = self::$defaultLanguageConfig[$initialLanguage] ?? self::$defaultLanguageConfig['en'];
+
+        $baseOptions = [
+            'language' => $initialLanguage,
             'template' => 'number',
             'precision' => 'high',
             'outputFormat' => 'plain',
@@ -17,17 +32,37 @@ class NumberFormatter
             'postfixMarker' => 'i',
             'prefix' => '',
             'postfix' => '',
+            'thousandSeparator' => $defaultSeparators['thousandSeparator'],
+            'decimalSeparator' => $defaultSeparators['decimalSeparator'],
         ];
-        $this->options = array_merge($this->options, $options);
+
+        $this->options = array_merge($baseOptions, $options); // User-provided options (including potential custom separators) override defaults
     }
 
     public function setLanguage($lang, $config = [])
     {
         $this->options['language'] = $lang;
-        $this->options['prefixMarker'] = $config['prefixMarker'] ?? $this->options['prefixMarker'];
+
+        $langDefaultSeparators = self::$defaultLanguageConfig[$lang] ?? self::$defaultLanguageConfig['en'];
+
+        // Set separators from language default first
+        $this->options['thousandSeparator'] = $langDefaultSeparators['thousandSeparator'];
+        $this->options['decimalSeparator'] = $langDefaultSeparators['decimalSeparator'];
+
+        // Then override with any explicit config passed to setLanguage
+        $this->options['prefixMarker'] = $config['prefixMarker'] ?? $this->options['prefixMarker']; // Keeps old behavior if not in $config
         $this->options['postfixMarker'] = $config['postfixMarker'] ?? $this->options['postfixMarker'];
         $this->options['prefix'] = $config['prefix'] ?? $this->options['prefix'];
         $this->options['postfix'] = $config['postfix'] ?? $this->options['postfix'];
+
+        // Explicit separator overrides from $config
+        if (isset($config['thousandSeparator'])) {
+            $this->options['thousandSeparator'] = $config['thousandSeparator'];
+        }
+        if (isset($config['decimalSeparator'])) {
+            $this->options['decimalSeparator'] = $config['decimalSeparator'];
+        }
+
         return $this;
     }
 
@@ -97,7 +132,109 @@ class NumberFormatter
         // Store original input string to preserve format for trailing zeros
         $originalInput = (string)$input;
 
-        if (!preg_match('/^(number|usd|irt|irr|percent)$/i', $template)) {
+        if ($template === 'liveformat') {
+            $currentInput = $this->_sanitizeLiveInput($originalInput);
+
+            $sign = '';
+            if (strpos($currentInput, '-') === 0) {
+                $sign = '-';
+                $currentInput = substr($currentInput, 1);
+            }
+
+            $currentThousandSeparator = $this->options['thousandSeparator'] ?? ',';
+            $currentDecimalSeparator = $this->options['decimalSeparator'] ?? '.';
+
+            if ($currentInput === '') {
+                return [
+                    'value' => '',
+                    'prefix' => '',
+                    'postfix' => '',
+                    'sign' => '',
+                    'wholeNumber' => ''
+                ];
+            }
+
+            if ($currentInput === '0') {
+                $outputZero = $this->_convertToFarsiDigits('0');
+                return [
+                    'value' => $outputZero,
+                    'prefix' => '',
+                    'postfix' => '',
+                    'sign' => '',
+                    'wholeNumber' => $outputZero,
+                ];
+            }
+
+            if ($currentInput === $currentDecimalSeparator) {
+                $currentInput = '0' . $currentDecimalSeparator;
+            }
+
+            $integerPart = $currentInput;
+            $decimalPart = '';
+            $hasDecimalPoint = strpos($currentInput, $currentDecimalSeparator) !== false;
+
+            if ($hasDecimalPoint) {
+                $parts = explode($currentDecimalSeparator, $currentInput, 2);
+                $integerPart = $parts[0];
+                $decimalPart = $parts[1] ?? '';
+            } else {
+                // If currentInput does not contain currentDecimalSeparator (e.g. "0.0" with Farsi '٬'),
+                // it might contain '.' from _sanitizeLiveInput. Check for that too.
+                if ($currentDecimalSeparator !== '.' && strpos($currentInput, '.') !== false) {
+                    $hasDecimalPoint = true; // We found a decimal point ('.')
+                    $parts = explode('.', $currentInput, 2);
+                    $integerPart = $parts[0];
+                    $decimalPart = $parts[1] ?? '';
+                } else {
+                    // No decimal point found (neither locale specific nor '.')
+                    $integerPart = $currentInput;
+                }
+            }
+
+            // Now $integerPart is the true integer part.
+            if ($integerPart === '') { $integerPart = '0'; }
+            else if ($integerPart !== '0') {
+                $tempInt = ltrim($integerPart, '0');
+                $integerPart = ($tempInt === '') ? '0' : $tempInt;
+            }
+            // No change if $integerPart is already "0"
+
+            if (strlen($integerPart) > 3) {
+                $formattedIntegerPart = preg_replace('/\\B(?=(\\d{3})+(?!\\d))/', $currentThousandSeparator, $integerPart);
+            } else {
+                $formattedIntegerPart = $integerPart;
+            }
+
+            $finalAbsoluteValue = $formattedIntegerPart; // This is absolute, Western digits, locale separators
+            if ($hasDecimalPoint) {
+                $finalAbsoluteValue .= $currentDecimalSeparator . $decimalPart;
+            }
+
+            $resultSign = '';
+            if ($sign === '-') {
+                // Use $finalAbsoluteValue (Western digits, locale separator) for floatval check
+                // Need to replace locale decimal with '.' for floatval if they differ
+                $valueForFloatval = str_replace($currentDecimalSeparator, '.', $finalAbsoluteValue);
+                if (floatval($valueForFloatval) === 0.0 && strpos($finalAbsoluteValue, $currentDecimalSeparator) === false) {
+                    $resultSign = '';
+                } else {
+                    $resultSign = '-';
+                }
+            }
+
+            $farsiOrWesternAbsoluteValue = $this->_convertToFarsiDigits($finalAbsoluteValue);
+            $finalDisplayValue = ($resultSign === '-' ? '-' : '') . $farsiOrWesternAbsoluteValue;
+
+            return [
+                'value' => $finalDisplayValue,
+                'prefix' => '',
+                'postfix' => '',
+                'sign' => $resultSign,
+                'wholeNumber' => $finalDisplayValue,
+            ];
+        }
+
+        if (!preg_match('/^(number|usd|irt|irr|percent|liveformat)$/i', $template)) {
             $template = 'number';
         }
 
@@ -443,7 +580,8 @@ class NumberFormatter
         }
         
         // FIXED: For numbers with decimal point, check for trailing zeros
-        if (strpos($originalInput, '.') !== false) {
+        // Also ensure it's not an E-notation string where trailing zeros have different meaning
+        if (strpos($originalInput, '.') !== false && !strpos(strtolower($originalInput), 'e')) {
             $originalParts = explode('.', $originalInput);
             if (count($originalParts) === 2) {
                 $originalDecimal = $originalParts[1];
@@ -574,7 +712,89 @@ class NumberFormatter
             return number_format($eNotation, $precision, '.', '');
         }
         
-        // For positive exponents, format to show as a regular number
-        return number_format($eNotation, 0, '.', '');
+        // For positive exponents or exponent = 0
+        if ($exponent == 0) {
+            return $parts[0]; // Return the coefficient as is, e.g., "1.23" for "1.23e0"
+        }
+        // Positive exponent: Manually reconstruct the number
+        // This is a simplified version; a more robust one would handle various coefficient formats.
+        list($integer, $fraction) = array_pad(explode('.', $parts[0]), 2, '');
+        $fraction = $fraction ?? '';
+
+        if ($exponent > 0) {
+            if (strlen($fraction) <= $exponent) {
+                return $integer . str_pad($fraction, $exponent, '0', STR_PAD_RIGHT);
+            } else {
+                return $integer . substr($fraction, 0, $exponent) . '.' . substr($fraction, $exponent);
+            }
+        }
+        // Should not be reached if logic is correct for exp < 0, exp == 0, exp > 0
+        return (string)$eNotation; // Fallback
     }
+
+    // Place this method within the NumberFormatter class in php/src/NumberFormatter.php
+    private function _sanitizeLiveInput(string $input): string
+    {
+        $sanitizedInput = $input;
+
+        // 1. Convert Farsi/Arabic numerals to Western numerals
+        // Eastern Arabic Numerals (e.g., ٠١٢)
+        $sanitizedInput = preg_replace_callback(
+            '/[\x{0660}-\x{0669}]/u',
+            function ($matches) {
+                return (string) (mb_ord($matches[0], 'UTF-8') - mb_ord('٠', 'UTF-8'));
+            },
+            $sanitizedInput
+        );
+        // Persian Numerals (e.g., ۰۱۲)
+        $sanitizedInput = preg_replace_callback(
+            '/[\x{06F0}-\x{06F9}]/u',
+            function ($matches) {
+                return (string) (mb_ord($matches[0], 'UTF-8') - mb_ord('۰', 'UTF-8'));
+            },
+            $sanitizedInput
+        );
+
+        // 2. Handle potential E-notation
+        // Temporarily normalize Farsi decimal separator '٬' to '.' for E-notation processing
+        $stringForENotationProcessing = $sanitizedInput;
+        $originalSeparator = null;
+
+        if (($this->options['language'] ?? 'en') === 'fa') {
+            $farsiDecimal = self::$defaultLanguageConfig['fa']['decimalSeparator'] ?? '٬';
+            if (strpos($sanitizedInput, $farsiDecimal) !== false) {
+                $originalSeparator = $farsiDecimal; // Remember if we changed it
+                $stringForENotationProcessing = str_replace($farsiDecimal, '.', $sanitizedInput);
+            }
+        }
+
+        if ($this->isENotation($stringForENotationProcessing)) {
+            // Pass the string with '.' as decimal for float conversion and as the "original" E-string
+            $convertedValue = $this->convertENotationToRegularNumber((float)$stringForENotationProcessing, $stringForENotationProcessing);
+            // If we had replaced a Farsi separator, and the result still has a '.', change it back
+            if ($originalSeparator && strpos($convertedValue, '.') !== false) {
+                 $sanitizedInput = str_replace('.', $originalSeparator, $convertedValue);
+            } else {
+                 $sanitizedInput = $convertedValue;
+            }
+        }
+        // If not E-notation, $sanitizedInput (with original separators after Farsi digit conversion) is returned.
+
+        return $sanitizedInput;
+    }
+
+  private function _convertToFarsiDigits(string $value): string
+  {
+      // Ensure language is 'fa' and value is not null/empty
+      if (($this->options['language'] ?? 'en') !== 'fa' || $value === null || $value === '') {
+          return $value;
+      }
+
+      // Convert Western digits (0-9) to Eastern Arabic Numerals (٠-٩)
+      // This matches the existing behavior in the reducePrecision method for Farsi output.
+      return preg_replace_callback('/[0-9]/', function ($match) {
+          // ord() is safe here as $match[0] will be a single byte Western digit '0'-'9'
+          return mb_chr(ord($match[0]) + 1728, 'UTF-8');
+      }, $value);
+  }
 }
