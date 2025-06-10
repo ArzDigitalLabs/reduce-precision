@@ -30,6 +30,40 @@ describe('NumberFormatter - Incremental Template', () => {
     { input: '12345.6700', expected: '12,345.6700' }, // Trailing zeros in decimal
     { input: '000', expected: '0' }, // Multiple zeros
     { input: '000.000', expected: '0.000' }, // Multiple zeros with decimal
+    // Test cases for E-notation handling by incremental template
+    { input: '1.23e-7', expected: '0.000000123' },
+    { input: '1.23E-7', expected: '0.000000123' }, // Uppercase E
+    { input: 0.000000123, expected: '0.000000123' }, // Number input that becomes E-notation
+    { input: '12345e-2', expected: '123.45' }, // Positive coefficient, negative exponent
+    { input: '0.00012345e+2', expected: '0.012345' }, // Decimal coefficient, positive exponent
+    { input: '1.23e+8', expected: '123,000,000' },
+    { input: '1.23E+8', expected: '123,000,000' },
+    { input: 123000000, expected: '123,000,000' }, // Number input (large)
+    { input: '1234567.89e+3', expected: '1,234,567,890' }, // Large number with decimal, positive exponent
+    { input: '123456789012345', expected: '123,456,789,012,345' }, // Large integer string (no E)
+    { input: 123456789012345, expected: '123,456,789,012,345' },   // Large integer number
+    { input: '1e-3', expected: '0.001' },
+    { input: 0.001, expected: '0.001' },
+    { input: '1e+3', expected: '1,000' },
+    { input: 1000, expected: '1,000' },
+    { input: '0e0', expected: '0' }, // Zero in E-notation
+    { input: 0e0, expected: '0' },
+    { input: '0.0e0', expected: '0.0' },
+    // Cases that might stress the convertENotationToRegularNumber
+    { input: '123456789123456789123', expected: '123,456,789,123,456,789,123' }, // Very large integer string
+    { input: 123456789123456789123, expected: '123,456,789,123,456,800,000' }, // Very large integer number (JS might show as E if too large for its default toString)
+    { input: '1.0e-20', expected: '0.00000000000000000001'}, // Small number, many zeros
+    { input: 1.0e-20, expected: '0.00000000000000000001'},
+    { input: '1.0e+20', expected: '100,000,000,000,000,000,000'}, // Large number, many zeros
+    { input: 1.0e+20, expected: '100,000,000,000,000,000,000'},
+    // Check inputs that convertENotationToRegularNumber might have previously struggled with
+    { input: '1e21', expected: '1,000,000,000,000,000,000,000' }, // Number that is 10^21
+    { input: 1e21, expected: '1,000,000,000,000,000,000,000' },
+    // Test with negative numbers in E-notation
+    { input: '-1.23e-7', expected: '-0.000000123' },
+    { input: -0.000000123, expected: '-0.000000123' },
+    { input: '-1.23e+8', expected: '-123,000,000' },
+    { input: -123000000, expected: '-123,000,000' },
   ];
 
   testCases.forEach(({ input, expected }) => {

@@ -144,6 +144,24 @@ class NumberFormatter {
 if (template === 'incremental') {
   let currentInput = originalInput;
 
+  // Handle potential E-notation in originalInput
+  if (this.isENotation(currentInput)) {
+    const numVal = Number(originalInput);
+    // If the number is 0 but original string starts with "0.0" (e.g., "0.0e0"), preserve "0.0" part.
+    if (numVal === 0 && originalInput.toLowerCase().startsWith('0.0')) {
+        const parts = originalInput.toLowerCase().split('e');
+        currentInput = parts[0]; // This preserves "0.0" from "0.0e..."
+    } else {
+        currentInput = this.convertENotationToRegularNumber(numVal);
+    }
+  }
+
+  let sign = '';
+  if (currentInput.startsWith('-')) {
+    sign = '-';
+    currentInput = currentInput.substring(1); // currentInput is now the absolute numeric string
+  }
+
   const currentThousandSeparator = thousandSeparator || ',';
   const currentDecimalSeparator = decimalSeparator || '.';
 
@@ -152,17 +170,18 @@ if (template === 'incremental') {
       value: '',
       prefix: '',
       postfix: '',
-      sign: '',
+      sign: '', // Sign is empty for empty input
       wholeNumber: ''
     } as FormattedObject;
   }
 
+  // Handles "0" (from input "0" or "-0")
   if (currentInput === '0') {
     return {
-      value: '0',
+      value: '0', // "-0" becomes "0"
       prefix: '',
       postfix: '',
-      sign: '',
+      sign: '', // Sign is empty for "0"
       wholeNumber: '0',
     } as FormattedObject;
   }
@@ -202,12 +221,34 @@ if (template === 'incremental') {
     finalValue += currentDecimalSeparator + decimalPart;
   }
 
+  const finalNumericValue = finalValue; // finalValue at this point is the formatted absolute number
+  let resultSign = '';
+  let resultValue = finalNumericValue;
+
+  if (sign === '-') {
+    // Only add sign if the number isn't representing plain zero.
+    // parseFloat "0.00" is 0. "0" is 0.
+    // We want "-0.123", but "0" for "-0".
+    // We want "-0.00" for input "-0.00" (if that's a required display for zero value with decimals)
+    // The tests for "-0.000000123" expect "-0.000000123".
+    // The tests for 0.000000123 expect "0.000000123".
+    // Test for -0 will clarify if it should be "0" or "-0". Assume "0".
+
+    if (parseFloat(finalNumericValue) === 0 && !finalNumericValue.includes('.')) { // handles "0"
+        resultSign = ''; // Make "-0" become "0"
+        // resultValue is already "0"
+    } else {
+        resultSign = '-';
+        resultValue = sign + finalNumericValue;
+    }
+  }
+
   return {
-    value: finalValue,
+    value: resultValue,
     prefix: '',
     postfix: '',
-    sign: '',
-    wholeNumber: finalValue,
+    sign: resultSign,
+    wholeNumber: resultValue, // wholeNumber includes sign now
   } as FormattedObject;
 }
 
@@ -408,29 +449,74 @@ if (template === 'incremental') {
     );
   }
   
-  private convertENotationToRegularNumber(eNotation: number): string {
-    // For simple cases like 1e3, directly use Number constructor
-    if (Number.isInteger(eNotation) && eNotation >= 1000) {
-      return eNotation.toString();
+  private convertENotationToRegularNumber(num: number): string {
+    let numStr = String(num);
+
+    // If not E-notation according to JS default toString, return it.
+    if (numStr.toLowerCase().indexOf('e') === -1) {
+      return numStr;
     }
-    
-    const parts = eNotation.toString().toLowerCase().split('e');
-    if (parts.length !== 2) return eNotation.toString();
-    
-    const coefficient = parseFloat(parts[0]);
-    const exponent = parseInt(parts[1], 10);
-    
-    // Handle negative exponents (very small numbers)
-    if (exponent < 0) {
-      const absExponent = Math.abs(exponent);
-      // Determine precision needed to show all digits
-      const precision = absExponent + 
-        (parts[0].includes('.') ? parts[0].split('.')[1].length : 0);
-      return eNotation.toFixed(precision);
+
+    // If it IS E-notation, attempt to convert to plain decimal string.
+    // Handle very small numbers (negative exponent) using toFixed.
+    // Check num !== 0 because String(0) is "0", which doesn't contain 'e'.
+    if (Math.abs(num) < 1.0 && num !== 0) {
+      const eParts = numStr.toLowerCase().split('e');
+      // Ensure it's a valid E-notation string with a negative exponent
+      if (eParts.length === 2) {
+        const exponent = parseInt(eParts[1], 10);
+        if (exponent < 0) {
+          let precision = Math.abs(exponent);
+          if (eParts[0].includes('.')) {
+            precision += eParts[0].split('.')[1].length;
+          }
+          // Cap precision to prevent overly long strings or errors with toFixed.
+          return num.toFixed(Math.min(precision, 100));
+        }
+      }
     }
-    
-    // For positive exponents, let JavaScript do the conversion
-    return eNotation.toString();
+
+    // Handle large numbers or numbers with positive E-notation if not caught above.
+    // This part manually reconstructs the string.
+    const parts = numStr.toLowerCase().split('e');
+    if (parts.length === 2) {
+        const coefficientStr = parts[0];
+        const exponent = parseInt(parts[1], 10);
+
+        let [integer, fraction] = coefficientStr.split('.');
+        fraction = fraction || '';
+
+        if (exponent > 0) { // Positive exponent
+            // Remove sign from integer for length calculations if present
+            const sign = integer.startsWith('-') ? "-" : "";
+            if (sign) integer = integer.substring(1);
+
+            if (fraction.length <= exponent) {
+                return sign + integer + fraction.padEnd(exponent, '0');
+            } else {
+                return sign + integer + fraction.substring(0, exponent) + '.' + fraction.substring(exponent);
+            }
+        } else if (exponent < 0) {
+            // This path is a fallback for negative exponents if the toFixed method above wasn't triggered
+            // (e.g., if Math.abs(num) >= 1.0 but it's something like 1.0e-5, though Number(1.0e-5) is < 1.0)
+            // The toFixed approach is generally more robust for negative exponents.
+            // For simplicity, we'll rely on the prior toFixed for most negative exponent cases.
+            // If it reaches here, it implies an unusual case or that toFixed didn't resolve it.
+            // Return the result from toFixed from the earlier block if possible, or the original numStr if it's complex.
+            // As a basic fallback if toFixed didn't run (e.g. num was 0, but that doesn't produce 'e'):
+             let precision = Math.abs(exponent);
+             if (coefficientStr.includes('.')) {
+                 precision += coefficientStr.split('.')[1].length;
+             }
+             return num.toFixed(Math.min(precision, 100)); // Try toFixed again as a general solution
+        } else { // exponent === 0
+            return coefficientStr; // e.g., 1.23e0 is 1.23
+        }
+    }
+
+    // Fallback if parsing E-notation parts failed, return original stringified number.
+    // Or if it was an E-notation not handled by above (e.g. unusual format or extreme exponent)
+    return numStr;
   }
 
   private reducePrecision(
