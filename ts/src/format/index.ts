@@ -44,8 +44,8 @@ class NumberFormatter {
     },
     fa: {
       ...this.languageBaseConfig,
-      thousandSeparator: '٬', // Correct: U+066C for thousands
-      decimalSeparator: '٫',  // Correct: U+066B for decimal
+      thousandSeparator: '٫', // Correct: U+066B (ARABIC DECIMAL SEPARATOR used as Farsi thousands)
+      decimalSeparator: '٬',  // Correct: U+066C (ARABIC THOUSANDS SEPARATOR used as Farsi decimal)
     },
   };
 
