@@ -44,8 +44,8 @@ class NumberFormatter {
     },
     fa: {
       ...this.languageBaseConfig,
-      thousandSeparator: '٫', // Correct: U+066B (ARABIC DECIMAL SEPARATOR used as Farsi thousands)
-      decimalSeparator: '٬',  // Correct: U+066C (ARABIC THOUSANDS SEPARATOR used as Farsi decimal)
+      thousandSeparator: '٬', // Correct: U+066C (ARABIC THOUSANDS SEPARATOR)
+      decimalSeparator: '٫',  // Correct: U+066B (ARABIC DECIMAL SEPARATOR)
     },
   };
 
@@ -120,6 +120,78 @@ class NumberFormatter {
     return /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)$/.test(input);
   }
 
+  // Modify to accept originalEString to handle cases like "0.0e0" -> "0.0"
+  private convertENotationToRegularNumber(num: number, originalEString?: string): string {
+    let numStr = String(num);
+
+    // If an originalEString is provided and represents 0 but has a specific format like "0.0", prefer that.
+    if (num === 0 && originalEString) {
+        const ePartsOriginal = originalEString.toLowerCase().split('e');
+        if (ePartsOriginal.length === 2) {
+            // Check if coefficient was like "0.0", "0.00" etc.
+            if (ePartsOriginal[0].match(/^0\.0*$/)) {
+                return ePartsOriginal[0]; // Return "0.0" or "0.00" etc.
+            }
+        }
+    }
+
+    // If not E-notation according to JS default toString for the number, or if it's simple "0", return it.
+    if (numStr.toLowerCase().indexOf('e') === -1) {
+      return numStr;
+    }
+
+    // If it IS E-notation, attempt to convert to plain decimal string.
+    // Handle very small numbers (negative exponent) using toFixed.
+    // Check num !== 0 because String(0) is "0", which doesn't contain 'e'.
+    if (Math.abs(num) < 1.0 && num !== 0) {
+      const eParts = numStr.toLowerCase().split('e'); // Use numStr here, not originalEString unless passed carefully
+      // Ensure it's a valid E-notation string with a negative exponent
+      if (eParts.length === 2) {
+        const exponent = parseInt(eParts[1], 10);
+        if (exponent < 0) {
+          let precision = Math.abs(exponent);
+          // Use coefficient from numStr for precision calculation
+          if (eParts[0].includes('.')) {
+            precision += eParts[0].split('.')[1].length;
+          }
+          // Cap precision to prevent overly long strings or errors with toFixed.
+          return num.toFixed(Math.min(precision, 100));
+        }
+      }
+    }
+
+    // Handle large numbers or numbers with positive E-notation if not caught above.
+    // This part manually reconstructs the string from numStr.
+    const parts = numStr.toLowerCase().split('e');
+    if (parts.length === 2) {
+        const coefficientStr = parts[0];
+        const exponent = parseInt(parts[1], 10);
+
+        let [integer, fraction] = coefficientStr.split('.');
+        fraction = fraction || '';
+
+        if (exponent > 0) { // Positive exponent
+            const sign = integer.startsWith('-') ? "-" : "";
+            if (sign) integer = integer.substring(1);
+
+            if (fraction.length <= exponent) {
+                return sign + integer + fraction.padEnd(exponent, '0');
+            } else {
+                return sign + integer + fraction.substring(0, exponent) + '.' + fraction.substring(exponent);
+            }
+        } else if (exponent < 0) { // Should have been caught by toFixed if num was < 1.0
+             let precision = Math.abs(exponent);
+             if (coefficientStr.includes('.')) {
+                 precision += coefficientStr.split('.')[1].length;
+             }
+             return num.toFixed(Math.min(precision, 100));
+        } else { // exponent === 0
+            return coefficientStr;
+        }
+    }
+    return numStr;
+  }
+
   private format(input: string | number): FormattedObject {
     let { precision, template } = this.options;
 
@@ -144,38 +216,44 @@ class NumberFormatter {
 if (template === 'liveformat') {
   let currentInput = this._sanitizeLiveInput(originalInput);
 
-  // Define locale-specific separators early as they might be needed by "0.0eX" override
+  // Define locale-specific separators early
   const currentThousandSeparator = thousandSeparator || ',';
   const currentDecimalSeparator = decimalSeparator || '.';
 
-  // Special case override for "0.0eX" inputs (e.g., "0.0e0", "۰٫۰e۳")
-  // This is to preserve the "0.0" part if originalInput indicated it,
-  // as _sanitizeLiveInput might convert such inputs to just "0".
-  // We inspect originalInput because _sanitizeLiveInput would have already converted its Farsi digits.
-  const originalInputIsENotation = this.isENotation(originalInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
+  // Special override for inputs like "0.0e0" or "۰٫۰e0" which _sanitizeLiveInput might turn into "0".
+  // This override aims to restore the "0.0" or "0٫0" representation if originalInput implies it.
+  // First, create a version of originalInput with Western digits and '.' as decimal for reliable parsing.
+  let westernizedOriginalInput = originalInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
     return String(match.charCodeAt(0) & 0xf);
-  }));
+  });
+  if ((this.options.language ?? 'en') === 'fa') {
+    const farsiDecimal = this.defaultLanguageConfig.fa.decimalSeparator || '٫';
+    westernizedOriginalInput = westernizedOriginalInput.replace(new RegExp(farsiDecimal, 'g'), '.');
+  }
 
-  if (originalInputIsENotation) {
-    const numValOriginal = Number(originalInput.replace(/[٠-٩۰-۹]/g, function (match: string) {
-        return String(match.charCodeAt(0) & 0xf);
-    })); // Number from potentially Farsi-digit E-notation string
-
+  if (this.isENotation(westernizedOriginalInput)) {
+    const numValOriginal = Number(westernizedOriginalInput);
     if (numValOriginal === 0) {
-      // Check if originalInput (before 'e') looked like "0.0", "0.00", "۰٫۰", "۰٫۰۰" etc.
       const eIndex = originalInput.toLowerCase().indexOf('e');
       if (eIndex > -1) {
         const partBeforeEOriginal = originalInput.substring(0, eIndex);
-        // Convert partBeforeEOriginal's Farsi digits to Western for regex matching & consistent storage
-        const partBeforeEWestern = partBeforeEOriginal.replace(/[٠-٩۰-۹]/g, function (match: string) {
+        const partBeforeEWesternDigits = partBeforeEOriginal.replace(/[٠-٩۰-۹]/g, function (match: string) {
             return String(match.charCodeAt(0) & 0xf);
         });
-        // Now check if this Western digit version (still with original separator) matches "0.decimalzeros"
-        // It should use the locale specific decimal separator for this check, or normalize it.
-        // For simplicity, let's check against "0." pattern after Farsi digits are Western.
-        // The decimal separator in partBeforeEWestern could be '٫' or '.'.
-        if (partBeforeEWestern.match(/^0(\.|٫)0*$/)) {
-          currentInput = partBeforeEWestern.replace('٫', currentDecimalSeparator); // Ensure currentInput uses currentDecimalSeparator
+
+        // Check if this part (e.g., "0.0" or "0٫0") matches the "zero with explicit decimals" pattern
+        // Normalize its decimal separator to currentDecimalSeparator for consistency before assigning to currentInput
+        let partToTest = partBeforeEWesternDigits;
+        if (partBeforeEWesternDigits.includes('.') && currentDecimalSeparator !== '.') {
+            partToTest = partBeforeEWesternDigits.replace('.', currentDecimalSeparator);
+        } else if (partBeforeEWesternDigits.includes('٫') && currentDecimalSeparator !== '٫') {
+            // This case should ideally not happen if Farsi decimal is '٫' and currentDecimalSeparator is also '٫'
+            partToTest = partBeforeEWesternDigits.replace('٫', currentDecimalSeparator);
+        }
+
+        const zeroWithDecimalsPattern = new RegExp(`^0\\${currentDecimalSeparator}0*$`);
+        if (partToTest.match(zeroWithDecimalsPattern)) {
+          currentInput = partToTest; // currentInput is now "0[currentSeparator]0..." e.g. "0.0" or "0٫0"
         }
       }
     }
@@ -221,27 +299,35 @@ if (template === 'liveformat') {
     currentInput = '0' + currentDecimalSeparator;
   }
 
-  let integerPart = currentInput;
+  let integerPart = '';
   let decimalPart = '';
-  // Check for decimal separator after potential modification of currentInput (e.g. "." -> "0.")
-  let hasDecimalPoint = currentInput.includes(currentDecimalSeparator);
+  let hasDecimalPoint = false;
 
-  if (hasDecimalPoint) {
-    const parts = currentInput.split(currentDecimalSeparator);
-    integerPart = parts[0];
-    decimalPart = parts.length > 1 ? parts[1] : '';
+  // Try splitting with current locale's decimal separator first
+  if (currentInput.includes(currentDecimalSeparator)) {
+      hasDecimalPoint = true;
+      const parts = currentInput.split(currentDecimalSeparator);
+      integerPart = parts[0];
+      decimalPart = parts.length > 1 ? parts[1] : '';
+  }
+  // If not found, and current locale is not using '.', check for '.' as a fallback
+  else if (currentDecimalSeparator !== '.' && currentInput.includes('.')) {
+      hasDecimalPoint = true;
+      const parts = currentInput.split('.');
+      integerPart = parts[0];
+      decimalPart = parts.length > 1 ? parts[1] : '';
+  } else {
+      // No decimal point found (neither locale specific nor '.')
+      integerPart = currentInput;
   }
 
-  // Remove all leading zeros from integer part first
-  if (integerPart.length > 0) {
-      integerPart = integerPart.replace(/^0+/, '');
+  // Now integerPart is the true integer part (still needs leading zero trim).
+  if (integerPart === '') { integerPart = '0'; }
+  else if (integerPart !== '0') {
+      const tempInt = integerPart.replace(/^0+/, '');
+      integerPart = (tempInt === '') ? '0' : tempInt;
   }
-
-  // If integerPart became empty (e.g. "00" -> "" or original was like ".5")
-  // set it to "0". This ensures "0.5" (from ".5" or "0.5") and "0" (from "00").
-  if (integerPart === '') {
-    integerPart = '0';
-  }
+  // No change if integerPart is already "0"
 
   const formattedIntegerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, currentThousandSeparator);
 
@@ -876,9 +962,29 @@ if (template === 'liveformat') {
     });
 
     // Handle potential E-notation
-    if (this.isENotation(sanitizedInput)) {
-      sanitizedInput = this.convertENotationToRegularNumber(Number(sanitizedInput));
+    let stringForENotationProcessing = sanitizedInput;
+    let originalFarsiSeparator = null;
+
+    if ((this.options.language ?? 'en') === 'fa') {
+      const farsiDecimal = this.defaultLanguageConfig.fa.decimalSeparator || '٫'; // Default to '٫'
+      if (sanitizedInput.includes(farsiDecimal)) {
+        originalFarsiSeparator = farsiDecimal;
+        stringForENotationProcessing = sanitizedInput.replace(new RegExp(farsiDecimal, 'g'), '.');
+      }
     }
+
+    if (this.isENotation(stringForENotationProcessing)) {
+      // Pass stringForENotationProcessing as the originalEString argument
+      const convertedValue = this.convertENotationToRegularNumber(Number(stringForENotationProcessing), stringForENotationProcessing);
+      // If we replaced a Farsi separator and the result has a '.', convert it back.
+      // Otherwise, use the converted value directly.
+      if (originalFarsiSeparator && convertedValue.includes('.')) {
+        sanitizedInput = convertedValue.replace(/\./g, originalFarsiSeparator);
+      } else {
+        sanitizedInput = convertedValue;
+      }
+    }
+    // If not E-notation, sanitizedInput (with original separators after Farsi digit conversion) is returned.
 
     return sanitizedInput;
   }

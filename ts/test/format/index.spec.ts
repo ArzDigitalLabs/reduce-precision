@@ -84,70 +84,81 @@ describe('NumberFormatter - Liveformat Template', () => {
     formatter.setLanguage('fa'); // Set language
     formatter.setTemplate('liveformat' as any, 'auto' as any); // Set template
 
-    // Corrected Farsi separators: thousand = '٫', decimal = '٬'
-    // Output digits should be Farsi.
+    // Confirmed Farsi Separators: Thousands: ٬ (U+066C), Decimal: ٫ (U+066B)
+    // Output Digits: Persian Numerals ۰۱۲... (U+06F0 range) as per TS implementation
 
-    it('should format Farsi input "۱۲۳۴" to "۱٫۲۳۴"', () => {
-      expect(formatter.toPlainString('۱۲۳۴')).toBe('۱٫۲۳۴');
+    it('should format Farsi input "۱۲۳۴" to "۱٬۲۳۴"', () => {
+      expect(formatter.toPlainString('۱۲۳۴')).toBe('۱٬۲۳۴');
     });
 
-    it('should format Farsi input "۱۲۳۴۵٬۶۷" to "۱۲٫۳۴۵٬۶۷"', () => {
-      expect(formatter.toPlainString('۱۲۳۴۵٬۶۷')).toBe('۱۲٫۳۴۵٬۶۷');
+    it('should format Farsi input "۱۲۳۴۵٫۶۷" (Farsi decimal) to "۱۲٬۳۴۵٫۶۷"', () => {
+      expect(formatter.toPlainString('۱۲۳۴۵٫۶۷')).toBe('۱۲٬۳۴۵٫۶۷');
     });
 
-    it('should format Farsi input "-۷۸۹٬۰۱" to "-۷۸۹٬۰۱"', () => {
-      expect(formatter.toPlainString('-۷۸۹٬۰۱')).toBe('-۷۸۹٬۰۱');
+    it('should format Farsi input "-۷۸۹٫۰۱" (Farsi decimal) to "-۷۸۹٫۰۱"', () => {
+      expect(formatter.toPlainString('-۷۸۹٫۰۱')).toBe('-۷۸۹٫۰۱');
     });
 
     it('should format Farsi input "۰" to "۰"', () => {
       expect(formatter.toPlainString('۰')).toBe('۰');
     });
 
-    it('should format Farsi input "-۰" to "۰"', () => {
+    it('should format Farsi input "-۰" to "۰"', () => { // Unsigned zero
       expect(formatter.toPlainString('-۰')).toBe('۰');
     });
 
-    it('should format Farsi input "۰٬۱۲" to "۰٬۱۲"', () => {
-      expect(formatter.toPlainString('۰٬۱۲')).toBe('۰٬۱۲');
+    it('should format Farsi input "۰٫۱۲" (Farsi decimal) to "۰٫۱۲"', () => {
+      expect(formatter.toPlainString('۰٫۱۲')).toBe('۰٫۱۲');
     });
 
-    it('should format Farsi input "-۰٬۱۲" to "-۰٬۱۲"', () => {
-      expect(formatter.toPlainString('-۰٬۱۲')).toBe('-۰٬۱۲');
+    it('should format Farsi input "-۰٫۱۲" (Farsi decimal) to "-۰٫۱۲"', () => {
+      expect(formatter.toPlainString('-۰٫۱۲')).toBe('-۰٫۱۲');
     });
 
-    it('should format Farsi input "۱۲۳۴۵۶۷۸۹٬۱۲۳" to "۱۲۳٫۴۵۶٫۷۸۹٬۱۲۳"', () => {
-      expect(formatter.toPlainString('۱۲۳۴۵۶۷۸۹٬۱۲۳')).toBe('۱۲۳٫۴۵۶٫۷۸۹٬۱۲۳');
+    it('should format Farsi input "۱۲۳۴۵۶۷۸۹٫۱۲۳" (Farsi decimal) to "۱۲۳٬۴۵۶٬۷۸۹٫۱۲۳"', () => {
+      expect(formatter.toPlainString('۱۲۳۴۵۶۷۸۹٫۱۲۳')).toBe('۱۲۳٬۴۵۶٬۷۸۹٫۱۲۳');
     });
 
-    it('should format mixed Farsi/Western digit input "1۲۳۴٬۵۶" (Farsi decimal) to "۱٫۲۳۴٬۵۶"', () => {
-      expect(formatter.toPlainString('1۲۳۴٬۵۶')).toBe('۱٫۲۳۴٬۵۶');
+    it('should format mixed Farsi/Western digit input "1۲۳۴٫۵۶" (Farsi decimal) to "۱٬۲۳۴٫۵۶"', () => {
+      expect(formatter.toPlainString('1۲۳۴٫۵۶')).toBe('۱٬۲۳۴٫۵۶');
     });
 
-    it('should format Farsi input with only Farsi decimal separator "٬" to "۰٬"', () => {
-      expect(formatter.toPlainString('٬')).toBe('۰٬');
+    it('should format Farsi input with only Farsi decimal separator "٫" to "۰٫"', () => {
+      expect(formatter.toPlainString('٫')).toBe('۰٫');
     });
 
-    // The critical test case from user feedback:
-    it('should format Farsi input "۹۳۱۲۸۳٬۰۰۰۹۱۲۳" to "۹۳۱٫۲۸۳٬۰۰۰۹۱۲۳"', () => {
-      expect(formatter.toPlainString('۹۳۱۲۸۳٬۰۰۰۹۱۲۳')).toBe('۹۳۱٫۲۸۳٬۰۰۰۹۱۲۳');
+    // User's critical case 1 (Farsi input, Farsi decimal '٫')
+    it('should format Farsi input "۹۳۱۲۸۳٫۰۰۰۹۱۲۳" to "۹۳۱٬۲۸۳٫۰۰۰۹۱۲۳"', () => {
+      expect(formatter.toPlainString('۹۳۱۲۸۳٫۰۰۰۹۱۲۳')).toBe('۹۳۱٬۲۸۳٫۰۰۰۹۱۲۳');
     });
 
-    // Test case with no fractional part, needing thousands separator
-    it('should format Farsi input "۱۲۳۴۵۶۷" to "۱٫۲۳۴٫۵۶۷"', () => {
-      expect(formatter.toPlainString('۱۲۳۴۵۶۷')).toBe('۱٫۲۳۴٫۵۶۷');
+    // User's critical case 2 (Western input "39312312.123123", lang 'fa')
+    // TS liveformat needs input to use '٫' if lang=fa for correct parsing.
+    it('should format Western digit input "39312312٫123123" (Farsi decimal) to "۳۹٬۳۱۲٬۳۱۲٫۱۲۳۱۲۳" when lang=fa', () => {
+        expect(formatter.toPlainString('39312312٫123123')).toBe('۳۹٬۳۱۲٬۳۱۲٫۱۲۳۱۲۳');
     });
 
-    // Test case with fractional part but no thousands separator needed in integer part
-    it('should format Farsi input "۱۲۳٬۴۵" to "۱۲۳٬۴۵"', () => {
-      expect(formatter.toPlainString('۱۲۳٬۴۵')).toBe('۱۲۳٬۴۵');
+    it('should format Farsi input "۱۲۳۴۵۶۷" to "۱٬۲۳۴٬۵۶۷"', () => {
+      expect(formatter.toPlainString('۱۲۳۴۵۶۷')).toBe('۱٬۲۳۴٬۵۶۷');
     });
 
-    // Adapted tests for Western digit inputs with Farsi decimal separator
-    it('should format Western digit input "1234٬56" (Farsi decimal) to "۱٫۲۳۴٬۵۶" when lang=fa', () => {
-        expect(formatter.toPlainString('1234٬56')).toBe('۱٫۲۳۴٬۵۶');
+    it('should format Farsi input "۱۲۳٫۴۵" (Farsi decimal) to "۱۲۳٫۴۵"', () => {
+      expect(formatter.toPlainString('۱۲۳٫۴۵')).toBe('۱۲۳٫۴۵');
     });
-    it('should format Western digit input "1234567٬89" (Farsi decimal) to "۱٫۲۳۴٫۵۶۷٬۸۹" when lang=fa', () => {
-        expect(formatter.toPlainString('1234567٬89')).toBe('۱٫۲۳۴٫۵۶۷٬۸۹');
+
+    // Test "0.0" like inputs
+    it('should format Farsi "۰٫۰" to "۰٫۰"', () => {
+      expect(formatter.toPlainString('۰٫۰')).toBe('۰٫۰');
+    });
+    it('should format Farsi "-۰٫۰" to "-۰٫۰"', () => {
+      expect(formatter.toPlainString('-۰٫۰')).toBe('-۰٫۰');
+    });
+    // Expectations for 0.0e0 related inputs, assuming they should result in "۰٫۰" after fixes
+    it('should format "0.0e0" to "۰٫۰" when lang=fa', () => {
+      expect(formatter.toPlainString('0.0e0')).toBe('۰٫۰');
+    });
+    it('should format "۰٫۰e0" (Farsi input) to "۰٫۰" when lang=fa', () => {
+      expect(formatter.toPlainString('۰٫۰e0')).toBe('۰٫۰');
     });
   });
 });
