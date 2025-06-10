@@ -1,4 +1,4 @@
-type Template = 'number' | 'usd' | 'irt' | 'irr' | 'percent';
+type Template = 'number' | 'usd' | 'irt' | 'irr' | 'percent' | 'incremental';
 type Precision = 'auto' | 'high' | 'medium' | 'low';
 type Language = 'en' | 'fa';
 type OutputFormat = 'plain' | 'html' | 'markdown';
@@ -44,8 +44,8 @@ class NumberFormatter {
     },
     fa: {
       ...this.languageBaseConfig,
-      thousandSeparator: '٫',
-      decimalSeparator: '٬',
+      thousandSeparator: '٬', // Correct: U+066C for thousands
+      decimalSeparator: '٫',  // Correct: U+066B for decimal
     },
   };
 
@@ -137,12 +137,82 @@ class NumberFormatter {
     if (input === undefined || input === null || input === '') {
       return {} as FormattedObject;
     }
-    
-    if (!template?.match(/^(number|usd|irt|irr|percent)$/g))
-      template = 'number';
 
     // Store original input string to preserve format for trailing zeros
     const originalInput = input.toString();
+
+if (template === 'incremental') {
+  let currentInput = originalInput;
+
+  const currentThousandSeparator = thousandSeparator || ',';
+  const currentDecimalSeparator = decimalSeparator || '.';
+
+  if (currentInput === '') {
+    return {
+      value: '',
+      prefix: '',
+      postfix: '',
+      sign: '',
+      wholeNumber: ''
+    } as FormattedObject;
+  }
+
+  if (currentInput === '0') {
+    return {
+      value: '0',
+      prefix: '',
+      postfix: '',
+      sign: '',
+      wholeNumber: '0',
+    } as FormattedObject;
+  }
+
+  // Handle cases like "." or "0." or ".0"
+  // If input is just the decimal separator, treat as "0" + separator
+  if (currentInput === currentDecimalSeparator) {
+    currentInput = '0' + currentDecimalSeparator;
+  }
+
+  let integerPart = currentInput;
+  let decimalPart = '';
+  // Check for decimal separator after potential modification of currentInput (e.g. "." -> "0.")
+  let hasDecimalPoint = currentInput.includes(currentDecimalSeparator);
+
+  if (hasDecimalPoint) {
+    const parts = currentInput.split(currentDecimalSeparator);
+    integerPart = parts[0];
+    decimalPart = parts.length > 1 ? parts[1] : '';
+  }
+
+  // Remove all leading zeros from integer part first
+  if (integerPart.length > 0) {
+      integerPart = integerPart.replace(/^0+/, '');
+  }
+
+  // If integerPart became empty (e.g. "00" -> "" or original was like ".5")
+  // set it to "0". This ensures "0.5" (from ".5" or "0.5") and "0" (from "00").
+  if (integerPart === '') {
+    integerPart = '0';
+  }
+
+  const formattedIntegerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, currentThousandSeparator);
+
+  let finalValue = formattedIntegerPart;
+  if (hasDecimalPoint) {
+    finalValue += currentDecimalSeparator + decimalPart;
+  }
+
+  return {
+    value: finalValue,
+    prefix: '',
+    postfix: '',
+    sign: '',
+    wholeNumber: finalValue,
+  } as FormattedObject;
+}
+
+    if (!template?.match(/^(number|usd|irt|irr|percent|incremental)$/g))
+      template = 'number';
     
     if (this.isENotation(originalInput)) {
       input = this.convertENotationToRegularNumber(Number(input));
