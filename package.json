@@ -2,7 +2,7 @@
   "name": "reduce-precision",
   "version": "1.2.0",
   "description": "",
-  "main": "./ts/lib/index.js",
+  "main": "./ts/lib/src/index.js",
   "files": [
     "ts/lib/**/*"
   ],
