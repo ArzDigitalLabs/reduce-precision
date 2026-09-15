@@ -1,3 +1,10 @@
+import { tomanSymbolSvg } from '../symbols';
+
+export interface FormatPart {
+  type: 'sign' | 'prefix' | 'number' | 'compact' | 'currency' | 'postfix' | 'literal';
+  value: string;
+}
+
 type Template = 'number' | 'usd' | 'irt' | 'irr' | 'percent' | 'liveformat';
 type Precision = 'auto' | 'high' | 'medium' | 'low';
 type Language = 'en' | 'fa';
@@ -26,6 +33,7 @@ interface Options extends LanguageConfig {
   template?: Template;
   language?: Language;
   outputFormat?: OutputFormat;
+  currencySymbol?: 'text' | 'svg';
 }
 
 class NumberFormatter {
@@ -86,7 +94,7 @@ class NumberFormatter {
   }
 
   toJson(input: string | number): FormattedObject {
-    const formattedObject = this.format(input);
+    const formattedObject = this.format(input, undefined, true);
     delete formattedObject.value;
 
     return formattedObject;
@@ -113,6 +121,17 @@ class NumberFormatter {
     this.options.outputFormat = 'markdown';
     const formattedObject = this.format(input);
     return formattedObject.value || '';
+  }
+
+  formatToParts(input: string | number): FormatPart[] {
+    const parts: FormatPart[] = [];
+    const formatter = new NumberFormatter({ ...this.options, outputFormat: 'plain' });
+    formatter.format(input, parts);
+    if (!parts.length) {
+      const value = formatter.toPlainString(input);
+      if (value) parts.push({ type: 'literal', value });
+    }
+    return parts;
   }
 
   // Private methods...
@@ -192,7 +211,7 @@ class NumberFormatter {
     return numStr;
   }
 
-  private format(input: string | number): FormattedObject {
+  private format(input: string | number, partsSink?: FormatPart[], preserveJson = false): FormattedObject {
     let { precision, template } = this.options;
 
     const {
@@ -578,7 +597,9 @@ if (template === 'liveformat') {
       postfix,
       thousandSeparator,
       decimalSeparator,
-      originalInput
+      originalInput,
+      partsSink,
+      preserveJson
     );
   }
 
@@ -598,7 +619,9 @@ if (template === 'liveformat') {
     postfix = '',
     thousandSeparator = ',',
     decimalSeparator = '.',
-    originalInput = ''
+    originalInput = '',
+    partsSink?: FormatPart[],
+    preserveJson = false
   ) {
     if (numberString === undefined || numberString === null || numberString.trim() === '') {
       return {} as FormattedObject;
@@ -787,6 +810,8 @@ if (template === 'liveformat') {
       }
     }
 
+    const compactUnit = unitPostfix;
+
     // Output Formating, Prefix, Postfix
     if (template === 'usd') {
       unitPrefix = language === 'en' ? '$' : '';
@@ -880,6 +905,43 @@ if (template === 'liveformat') {
         });
     }
 
+    if (template === 'irt' && (partsSink || (outputFormat === 'html' && this.options.currencySymbol === 'svg' && !preserveJson))) {
+      const localize = (text: string): string => language === 'fa'
+        ? text.replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 1728))
+        : text;
+      const scales: { [key: string]: string } = language === 'fa'
+        ? { K: 'هزار', M: 'میلیون', B: 'میلیارد', T: 'هزار میلیارد', Qd: 'کادریلیون', Qt: 'کنتیلیون' }
+        : { K: 'K', M: 'M', B: 'B', T: 'T', Qd: 'Qd', Qt: 'Qt' };
+      const parts: FormatPart[] = [];
+      if (sign) parts.push({ type: 'sign', value: sign });
+      if (prefix) parts.push({ type: 'prefix', value: localize(prefix) });
+      parts.push({ type: 'number', value: localize(wholeNumberStr.replace(/,/g, thousandSeparator).replace(/\./g, decimalSeparator)) });
+      parts.push({ type: 'literal', value: ' ' });
+      if (compactUnit) {
+        parts.push({ type: 'compact', value: scales[compactUnit] || compactUnit });
+        parts.push({ type: 'literal', value: ' ' });
+      }
+      parts.push({ type: 'currency', value: language === 'fa' ? 'ت' : 'T' });
+      if (postfix) parts.push({ type: 'postfix', value: localize(postfix) });
+      if (partsSink) partsSink.push(...parts);
+      if (outputFormat === 'html' && this.options.currencySymbol === 'svg' && !preserveJson) {
+        const escapeHtml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const wrap = (text: string, marker: string): string => {
+          const tag = /^(?:i|b|em|strong|span|small|sup|sub)$/i.test(marker) ? marker : 'span';
+          return text ? `<${tag}>${text}</${tag}>` : '';
+        };
+        const numberIndex = parts.findIndex(part => part.type === 'number');
+        const suffixHtml = parts.slice(numberIndex + 1).map(part => part.type === 'currency'
+          ? tomanSymbolSvg.replace('aria-label="تومان"', `aria-label="${language === 'fa' ? 'تومان' : 'Toman'}"`)
+          : escapeHtml(part.value)).join('');
+        formattedObject.value = escapeHtml(sign)
+          + wrap(escapeHtml(localize(prefix)), prefixMarker)
+          + escapeHtml(parts[numberIndex].value)
+          + wrap(suffixHtml, postfixMarker);
+      }
+    } else if (partsSink && formattedObject.value) {
+      partsSink.push({ type: 'literal', value: formattedObject.value });
+    }
     return formattedObject;
   }
 

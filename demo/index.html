@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A live workbench for the reduce-precision package." />
+    <title>reduce-precision workbench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div class="package-mark" aria-hidden="true">R<span>P</span></div>
+        <div>
+          <p class="eyebrow">Package workbench · live source</p>
+          <h1>Reduce precision.<br /><em>Keep the meaning.</em></h1>
+        </div>
+        <p class="intro">A small interactive surface for testing every formatter path while you edit the package.</p>
+      </header>
+
+      <section class="workbench" aria-labelledby="workbench-title">
+        <div class="controls">
+          <div class="section-heading">
+            <p class="eyebrow">Input</p>
+            <h2 id="workbench-title">Try a number</h2>
+          </div>
+
+          <label class="number-field">
+            <span>Raw value</span>
+            <input id="number" value="123456789.1234" inputmode="decimal" autocomplete="off" spellcheck="false" />
+          </label>
+
+          <div class="control-grid">
+            <label>
+              <span>Template</span>
+              <select id="template">
+                <option value="number">Number</option>
+                <option value="usd">USD</option>
+                <option value="irt" selected>Toman</option>
+                <option value="irr">Rial</option>
+                <option value="percent">Percent</option>
+                <option value="liveformat">Live format</option>
+              </select>
+            </label>
+            <label>
+              <span>Precision</span>
+              <select id="precision">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="auto">Auto</option>
+              </select>
+            </label>
+            <label>
+              <span>Language</span>
+              <select id="language">
+                <option value="en">English</option>
+                <option value="fa" selected>Persian</option>
+              </select>
+            </label>
+            <label>
+              <span>View</span>
+              <select id="format">
+                <option value="plain">Plain</option>
+                <option value="html" selected>HTML</option>
+                <option value="markdown">Markdown</option><option value="parts">Parts preview</option>
+              </select>
+            </label>
+          </div>
+
+          <label><span>Toman symbol</span><select id="symbol"><option value="text">Text</option><option value="svg" selected>SVG icon</option></select></label>
+          <p>HTML renders the icon. Plain and Markdown keep text; Parts preview composes the icon in the UI.</p>
+          <details>
+            <summary>Custom affixes</summary>
+            <div class="control-grid affixes">
+              <label><span>Prefix</span><input id="prefix" placeholder="Before value" /></label>
+              <label><span>Postfix</span><input id="postfix" placeholder="After value" /></label>
+            </div>
+          </details>
+        </div>
+
+        <div class="result-panel" aria-live="polite">
+          <div class="result-meta">
+            <p class="eyebrow">Output</p>
+            <span id="status">plain · en</span>
+          </div>
+          <output id="result" for="number">123,456,789.1</output>
+          <div class="rule"></div><span>Raw output</span><pre><code id="raw"></code></pre>
+          <div class="json-heading">
+            <span>Formatted object</span>
+            <button id="copy" type="button">Copy output</button>
+          </div>
+          <pre><code id="json"></code></pre>
+        </div>
+      </section>
+
+      <footer>
+        <span>Editing <code>ts/src/</code> refreshes this page automatically.</span>
+        <a href="https://github.com/ArzDigitalLabs/reduce-precision">GitHub ↗</a>
+      </footer>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

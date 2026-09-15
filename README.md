@@ -20,6 +20,7 @@
 - Intelligent handling of very small and very large numbers
 - Automatic thousand separators and decimal points based on the selected language
 - TypeScript type definitions included
+- Optional inline Toman SVG and structured parts for custom UI rendering (JavaScript/TypeScript)
 
 ## Installation
 
@@ -70,7 +71,7 @@ echo $formatter->toString(12345.678); // Default format
 
 ## Options
 
-The `format` function accepts an optional `options` object with the following properties:
+The JavaScript/TypeScript `NumberFormatter` constructor accepts an optional `options` object with the following properties:
 
 | Option          | Type                                                       | Default    | Description                                           |
 | --------------- | ---------------------------------------------------------- | ---------- | ----------------------------------------------------- |
@@ -82,6 +83,7 @@ The `format` function accepts an optional `options` object with the following pr
 | `postfixMarker` | `string`                                                   | `'i'`      | Postfix marker for HTML and Markdown output           |
 | `prefix`        | `string`                                                   | `''`       | Prefix string to be added before the formatted number |
 | `postfix`       | `string`                                                   | `''`       | Postfix string to be added after the formatted number |
+| `currencySymbol` | `'text'` \| `'svg'` | `'text'` | Toman symbol style for HTML output (JavaScript/TypeScript) |
 
 ## Examples
 
@@ -189,6 +191,88 @@ Formats the input number as an HTML string.
 
 Formats the input number as a Markdown string.
 
+## Toman SVG (TypeScript / JavaScript)
+
+Opt in to the bundled icon for HTML output:
+
+```ts
+import { NumberFormatter, tomanSymbolSvg } from 'reduce-precision';
+
+const formatter = new NumberFormatter({
+  template: 'irt',
+  currencySymbol: 'svg', // default: 'text'
+}).setLanguage('fa');
+
+formatter.toHtmlString(12500); // localized amount with inline Toman SVG
+formatter.toPlainString(12500); // existing text representation
+const parts = formatter.formatToParts(12500);
+```
+
+Plain text, Markdown, other templates, and the existing JSON contract retain their
+behavior. `toString()` follows the selected output format, as before. The icon uses
+`currentColor`, a `1em` size, an accessible Toman label, and `.rp-currency-symbol` for styling.
+SVG output escapes custom affix text. HTML markers support `i`, `b`, `em`,
+`strong`, `span`, `small`, `sup`, and `sub`; other markers fall back to `span`
+when SVG output is enabled.
+
+`formatToParts()` returns `{ type, value }` objects. IRT parts separate `sign`,
+`prefix`, `number`, `compact`, `currency`, `postfix`, and spacing (`literal`).
+Render text parts as text nodes and replace the currency part with the exported
+`tomanSymbolSvg` or your framework component. Compact parts explicitly separate
+scale and currency (for example, `هزار میلیارد` and `ت` instead of `همت`), so joining
+parts may differ from legacy plain output. Other templates currently return a
+single `literal` part. Invalid/empty input returns an empty array.
+
+This feature is currently available in the JavaScript/TypeScript implementation;
+the PHP implementation is unchanged.
+
+### Render parts in a browser
+
+```ts
+const output = document.querySelector('#price')!;
+output.replaceChildren();
+
+for (const part of formatter.formatToParts(12500)) {
+  if (part.type === 'currency') {
+    // Parse only the bundled SVG, never user-provided text.
+    const icon = new DOMParser()
+      .parseFromString(tomanSymbolSvg, 'image/svg+xml').documentElement;
+    output.appendChild(document.importNode(icon, true));
+  } else {
+    output.appendChild(document.createTextNode(part.value));
+  }
+}
+```
+
+The exported `FormatPart` TypeScript type describes each part. Calling
+`formatToParts()` does not change the formatter's selected output mode.
+
+## Local demo
+
+From a checkout of this repository:
+
+```bash
+npm ci
+npm run dev
+```
+
+Open the local URL printed by Vite. Select **Toman**, choose **Text** or **SVG icon**,
+and switch between **HTML**, **Plain**, **Markdown**, and **Parts preview**.
+The demo displays the rendered result, raw output, and formatted object or parts.
+Plain and Markdown remain textual even when SVG is selected.
+
+Build the package and demo:
+
+```bash
+npm run typecheck
+npm test -- --runInBand
+npm run build
+npm run demo:build
+npm run demo:preview
+```
+
+The demo build is written to `demo-dist/` and is excluded from Git.
+
 ## Testing
 
 ### Node.js / TypeScript
@@ -210,5 +294,3 @@ Contributions are welcome! If you find a bug or have a feature request, please o
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
----

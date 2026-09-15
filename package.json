@@ -7,6 +7,9 @@
     "ts/lib/**/*"
   ],
   "scripts": {
+    "dev": "vite --config demo/vite.config.mjs",
+    "demo:build": "vite build --config demo/vite.config.mjs",
+    "demo:preview": "vite preview --config demo/vite.config.mjs",
     "build": "npm run build:tsc && npm run build:webpack",
     "build:tsc": "tsc --project tsconfig.json",
     "build:webpack": "webpack --config webpack.config.js",
@@ -49,6 +52,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
+    "vite": "^8.3.0",
     "webpack": "^5.101.0",
     "webpack-cli": "^6.0.1"
   },

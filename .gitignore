@@ -31,6 +31,7 @@ Thumbs.db
 # Ignore build and release directories
 ts/lib/
 dist/
+demo-dist/
 
 # Ignore coverage reports
 coverage/
