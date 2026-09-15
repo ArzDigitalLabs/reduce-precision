@@ -477,6 +477,19 @@ class NumberFormatter
                 'Qt' => ' میلیون همت',
             ];
 
+        // Rial must not use Toman's compact labels or currency-specific "همت".
+        if ($template === 'irr') {
+            $scaleUnits = [
+                '' => '',
+                'K' => ' هزار ر',
+                'M' => ' میلیون ر',
+                'B' => ' میلیارد ر',
+                'T' => ' هزار میلیارد ر',
+                'Qd' => ' کادریلیون ر',
+                'Qt' => ' کنتیلیون ر',
+            ];
+        }
+
         $parts = [];
         preg_match('/^(-)?(\d+)\.?([0]*)(\d*)$/u', $numberString, $parts);
 

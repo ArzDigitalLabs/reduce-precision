@@ -191,6 +191,24 @@ Formats the input number as an HTML string.
 
 Formats the input number as a Markdown string.
 
+## Rial compact formatting
+
+The `irr` template keeps Rial units when precision compresses large amounts.
+This applies to both JavaScript/TypeScript and PHP. Persian compact output uses
+`ر` (for example, `میلیون ر`), and the JavaScript JSON `fullPostfix` uses `ریال`.
+Trillion-scale Rial values use `هزار میلیارد ر`; `همت` remains specific to Toman.
+
+```ts
+const rial = new NumberFormatter({ template: 'irr', precision: 'medium' })
+  .setLanguage('fa');
+
+rial.toPlainString(1234567); // '۱٫۲۳ میلیون ر'
+rial.toHtmlString(1234567);  // '۱٫۲۳<i> میلیون ر</i>'
+```
+
+The corrected labels apply to plain text, HTML, Markdown, JSON, and the parts
+preview. The Toman SVG option does not change Rial output.
+
 ## Toman SVG (TypeScript / JavaScript)
 
 Opt in to the bundled icon for HTML output:
@@ -284,7 +302,13 @@ You can run tests using Jest or any other preferred testing framework for TypeSc
 You can run tests using PHPUnit:
 
 ```bash
-./vendor/bin/phpunit tests
+./vendor/bin/phpunit php/tests/NumberFormatterTest.php
+```
+
+Run the standalone Rial regression check without PHPUnit:
+
+```bash
+php php/tests/rial-regression.php
 ```
 
 ## Contributing

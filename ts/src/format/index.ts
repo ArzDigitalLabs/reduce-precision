@@ -676,6 +676,18 @@ if (template === 'liveformat') {
           Qt: ' کنتیلیون تومان',
         };
 
+    // Rial has its own compact labels; Toman's "همت" is currency-specific.
+    if (template === 'irr') {
+      Object.assign(scaleUnits, {
+        K: ' هزار ر', M: ' میلیون ر', B: ' میلیارد ر',
+        T: ' هزار میلیارد ر', Qd: ' کادریلیون ر', Qt: ' کنتیلیون ر',
+      });
+      Object.assign(fullScaleUnits, {
+        K: ' هزار ریال', M: ' میلیون ریال', B: ' میلیارد ریال',
+        T: ' هزار میلیارد ریال', Qd: ' کادریلیون ریال', Qt: ' کنتیلیون ریال',
+      });
+    }
+
     let parts = /^(-)?(\d+)\.?([0]*)(\d*)$/g.exec(numberString);
 
     if (!parts) {
