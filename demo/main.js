@@ -1,4 +1,4 @@
-import { NumberFormatter, tomanSymbolSvg } from '../ts/src/index.ts';
+import { NumberFormatter, tomanSymbolSvg } from 'reduce-precision';
 import './style.css';
 
 const fields = {
