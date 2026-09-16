@@ -1,6 +1,6 @@
 {
   "name": "reduce-precision",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "",
   "main": "./ts/lib/src/index.js",
   "files": [
@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "vite --config demo/vite.config.mjs",
+    "prepack": "npm run clean && npm run build",
     "demo:build": "vite build --config demo/vite.config.mjs",
     "demo:preview": "vite preview --config demo/vite.config.mjs",
     "build": "npm run build:tsc && npm run build:webpack",

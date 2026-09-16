@@ -1,0 +1,8 @@
+{
+  "name": "reduce-precision-demo",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "reduce-precision": "1.3.1"
+  }
+}
